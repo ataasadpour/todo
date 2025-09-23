@@ -145,36 +145,37 @@ async function render(){
     const subj=document.createElement('div'); subj.className='subject-badge'; subj.textContent=task.subject;
     meta.appendChild(subj); left.appendChild(h3); left.appendChild(meta);
 
-    // تایمر
     const timerContainer=document.createElement('div'); timerContainer.className='timer-container';
     const timerDiv=document.createElement('div'); timerDiv.className='timer-circle';
-    const timerText=document.createElement('span'); timerDiv.appendChild(timerText);
+    const timerText=document.createElement('span'); timerText.textContent=new Date((task.elapsed||0)*1000).toISOString().substr(11,8);
+    timerDiv.appendChild(timerText);
     timerContainer.appendChild(timerDiv);
+
     const goalInput=document.createElement('input'); goalInput.type='number'; goalInput.min='1'; goalInput.value=task.goalMinutes||60;
     goalInput.style.width='50px'; goalInput.title='هدف مطالعه (دقیقه)';
-    goalInput.addEventListener('change', async e=>{const val=parseInt(e.target.value); if(val>0){task.goalMinutes=val; await updateTaskServer(task);} else e.target.value=task.goalMinutes;});
+    goalInput.addEventListener('change', async e=>{const val=parseInt(e.target.value); if(val>0){task.goalMinutes=val; await updateTaskServer({...task, action:'update'});} else e.target.value=task.goalMinutes;});
     timerContainer.appendChild(goalInput);
     left.appendChild(timerContainer);
     el.appendChild(left);
 
     const timerBtn=document.createElement('button'); timerBtn.textContent='شروع';
     timerBtn.addEventListener('click', async ()=>{
-      if(timers[task.id]){clearInterval(timers[task.id]); delete timers[task.id]; timerBtn.textContent='شروع'; await updateTaskServer(task);}
+      if(timers[task.id]){clearInterval(timers[task.id]); delete timers[task.id]; timerBtn.textContent='شروع'; await updateTaskServer({...task, action:'update'});}
       else {timerBtn.textContent='توقف'; timers[task.id]=setInterval(async ()=>{
         task.elapsed=(task.elapsed||0)+1;
         timerText.textContent=new Date(task.elapsed*1000).toISOString().substr(11,8);
-        await updateTaskServer(task);
+        await updateTaskServer({...task, action:'update'});
       },1000);}
     });
     el.appendChild(timerBtn);
 
-    // دکمه‌ها
     const actions=document.createElement('div'); actions.className='actions';
     const doneBtn=document.createElement('button'); doneBtn.textContent=task.done?'نشده کن':'انجام شد';
     doneBtn.addEventListener('click', async ()=>{task.done=!task.done; await markDoneServer(task); render(); generateCalendar();});
     const deleteBtn=document.createElement('button'); deleteBtn.textContent='حذف'; deleteBtn.className='muted-btn';
     deleteBtn.addEventListener('click', async ()=>{if(confirm('آیا از حذف این کار مطمئن هستید؟')){await deleteTaskServer(task.id); render(); generateCalendar();}});
-    actions.appendChild(doneBtn); actions.appendChild(deleteBtn); el.appendChild(actions);
+    actions.appendChild(doneBtn); actions.appendChild(deleteBtn);
+    el.appendChild(actions);
 
     listEl.appendChild(el);
   });
@@ -183,11 +184,12 @@ async function render(){
 document.getElementById('taskForm').addEventListener('submit', async e=>{
   e.preventDefault();
   const title=titleEl.value.trim(); if(!title) return;
-  await addTaskToServer({title,subject:subjectEl.value,date:formatDateKey(selectedDate),goalMinutes:60});
+  const newTask={title,subject:subjectEl.value,date:formatDateKey(selectedDate)};
+  await addTaskToServer(newTask);
   titleEl.value=''; render(); generateCalendar();
 });
 
-document.getElementById('todayBtn').addEventListener('click', ()=>{selectedDate=new Date(); render(); highlightSelectedDay();});
+document.getElementById('todayBtn').addEventListener('click',()=>{selectedDate=new Date(); render(); highlightSelectedDay();});
 document.getElementById('clearCompleted').addEventListener('click', async ()=>{
   const tasks=await fetchTasks(formatDateKey(selectedDate));
   for(const t of tasks){if(t.done) await deleteTaskServer(t.id);}
@@ -195,7 +197,9 @@ document.getElementById('clearCompleted').addEventListener('click', async ()=>{
 });
 document.getElementById('autoMoveBtn').addEventListener('click', async ()=>{
   const tasks=await fetchTasks(formatDateKey(selectedDate));
-  for(const t of tasks){if(!t.done){t.date=new Date(selectedDate); t.date.setDate(t.date.getDate()+1); await addTaskToServer(t); await deleteTaskServer(t.id);}}
+  const tomorrow=new Date(selectedDate); tomorrow.setDate(tomorrow.getDate()+1);
+  const tKey=formatDateKey(tomorrow);
+  for(const t of tasks){if(!t.done){await addTaskToServer({...t,date:tKey}); await deleteTaskServer(t.id);}}
   render(); generateCalendar();
 });
 
