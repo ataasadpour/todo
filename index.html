@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Todo1</title>
+<title>Todo</title>
 <style>
 :root{
   --bg:#121212; --card:#1f1f1f; --accent:#3b82f6; --muted:#b0b0b0;
@@ -82,7 +82,6 @@ button:hover{background:#2563eb;color:#fff;}
 </div>
 
 <script>
-<script>
 const API_URL = 'https://nailonasadpour.ir/todo/api.php';
 let tasks = {}; 
 let timers = {};
@@ -100,13 +99,8 @@ function toJalali(date){return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dat
 async function loadTasks(date){
   const res = await fetch(`${API_URL}?action=get&date=${date}`);
   const data = await res.json();
+  // تبدیل done به عدد 0 یا 1
   data.forEach(t => t.done = Number(t.done));
-  // اضافه کردن مقادیر study_minutes و study_seconds اگر وجود ندارد
-  data.forEach(t=>{
-    if(!t.study_minutes) t.study_minutes=0;
-    if(!t.study_seconds) t.study_seconds=0;
-    if(!t.goal_minutes) t.goal_minutes=60;
-  });
   tasks[date] = data;
 }
 
@@ -151,21 +145,14 @@ function generateCalendar(){
     const key=formatDateKey(day);
     const card=document.createElement('div'); card.className='day-card'; card.dataset.date=key;
     card.innerHTML=`<div>${toJalali(day)}</div>`;
-    
     const progressCircle=document.createElement('div'); progressCircle.className='progress-circle';
-    
-    if(tasks[key] && tasks[key].length){
-      // درصد کل پیشرفت روز = مجموع زمان مطالعه / مجموع هدف‌ها
-      const totalSec = tasks[key].reduce((sum,t) => sum + t.study_minutes*60 + t.study_seconds,0);
-      const totalGoalSec = tasks[key].reduce((sum,t) => sum + t.goal_minutes*60,0);
-      const percent = totalGoalSec ? Math.floor(totalSec / totalGoalSec * 100) : 0;
+    if(tasks[key]&&tasks[key].length){
+      const doneCount=tasks[key].filter(t=>t.done).length;
+      const percent=Math.floor(doneCount/tasks[key].length*100);
       progressCircle.style.background=`conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
-      progressCircle.textContent = `${percent}%`;
-    } else {
-      progressCircle.textContent='0%';
-    }
+      progressCircle.textContent=`${percent}%`;
+    } else progressCircle.textContent='0%';
     card.appendChild(progressCircle);
-    
     card.addEventListener('click',async ()=>{
       selectedDate = day;
       await render();
@@ -209,13 +196,8 @@ async function render(){
       const s=totalSec%60;
       return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
     }
-
-    let totalSec = task.study_minutes*60 + task.study_seconds;
-    const totalGoalSec = task.goal_minutes*60;
-    const percent = totalGoalSec ? Math.min(100, Math.floor(totalSec / totalGoalSec * 100)) : 0;
-    let color = percent<50?'#3b82f6':percent<80?'#f59e0b':'#22c55e';
-    timerDiv.style.background=`conic-gradient(${color} 0% ${percent}%, #555 ${percent}% 100%)`;
-    timerText.textContent = formatTime(totalSec);
+    const initialSec = task.study_minutes*60 + task.study_seconds;
+    timerText.textContent = formatTime(initialSec);
     timerDiv.appendChild(timerText);
 
     const goalInput=document.createElement('input'); goalInput.type='number'; goalInput.min='1'; goalInput.value=task.goal_minutes;
@@ -237,17 +219,15 @@ async function render(){
       } else{
         timerBtn.textContent='توقف';
         timers[task.id] = setInterval(async ()=>{
-          totalSec = task.study_minutes*60 + task.study_seconds +1;
+          let totalSec = task.study_minutes*60 + task.study_seconds +1;
           task.study_minutes = Math.floor(totalSec/60);
           task.study_seconds = totalSec%60;
           timerText.textContent = formatTime(totalSec);
-
-          const percent = Math.min(100, Math.floor(totalSec / (task.goal_minutes*60) * 100));
+          const totalGoalSec = task.goal_minutes*60;
+          const percent = Math.min(100, Math.floor(totalSec/totalGoalSec*100));
           let color = percent<50?'#3b82f6':percent<80?'#f59e0b':'#22c55e';
           timerDiv.style.background=`conic-gradient(${color} 0% ${percent}%, #555 ${percent}% 100%)`;
-
           await updateTask(task,false);
-          generateCalendar(); // بروزرسانی درصد کل روز
         },1000);
       }
     });
@@ -328,7 +308,6 @@ document.getElementById('todayBtn').addEventListener('click', async ()=>{
 generateCalendar();
 highlightSelectedDay();
 render();
-</script>
 
 </script>
 </body>
