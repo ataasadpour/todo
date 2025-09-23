@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Todo آنلاین</title>
+<title>Todo</title>
 <style>
 :root{
   --bg:#121212; --card:#1f1f1f; --accent:#3b82f6; --muted:#b0b0b0;
@@ -49,7 +49,7 @@ button:hover{background:#2563eb;color:#fff;}
 <div class="container">
 <button class="today-btn" id="todayBtn">بازگشت به امروز</button>
 <header>
-<h1>لیست کارهای درسی آنلاین</h1>
+<h1>لیست کارهای درسی</h1>
 <div class="calendar-slider" style="direction: ltr !important;" id="calendarSlider"></div>
 </header>
 <section class="card">
@@ -80,130 +80,198 @@ button:hover{background:#2563eb;color:#fff;}
 <div id="empty" class="empty" style="display:none">هیچ کاری وجود ندارد — یک کار اضافه کنید!</div>
 </section>
 </div>
-
 <script>
-const API_URL = "https://nailonasadpour.ir/todo/api.php";
+const API_URL = 'https://nailonasadpour.ir/todo/api.php';
 
-function toJalali(date){return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(date);}
-let selectedDate=new Date();
-const listEl=document.getElementById('list'),calendarSlider=document.getElementById('calendarSlider');
-const titleEl=document.getElementById('title'),subjectEl=document.getElementById('subject');
-let timers={};
+let selectedDate = new Date();
+const listEl = document.getElementById('todoList');
+const titleEl = document.getElementById('title');
+const subjectEl = document.getElementById('subject');
+const calendarEl = document.getElementById('calendar');
 
-function formatDateKey(d){return d.toISOString().split('T')[0];}
-
+// 📌 دریافت لیست تسک‌ها از سرور
 async function fetchTasks(date){
-    const res=await fetch(`${API_URL}?action=get&date=${date}`);
+  try {
+    const res = await fetch(`${API_URL}?date=${date}`);
     return await res.json();
-}
-
-async function updateTaskServer(task){await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(task)});}
-
-async function addTaskToServer(task){task.action='add'; await updateTaskServer(task);}
-async function markDoneServer(task){task.action='done'; await updateTaskServer(task);}
-async function deleteTaskServer(id){await updateTaskServer({action:'delete',id});}
-
-async function generateCalendar(){
-  calendarSlider.innerHTML='';
-  const today=new Date();
-  for(let i=0;i<30;i++){
-    const day=new Date(); day.setDate(today.getDate()+i);
-    const key=formatDateKey(day);
-    const card=document.createElement('div'); card.className='day-card'; card.dataset.date=key;
-    card.innerHTML=`<div>${toJalali(day)}</div>`;
-    const progressCircle=document.createElement('div'); progressCircle.className='progress-circle';
-    const tasks=await fetchTasks(key);
-    if(tasks && tasks.length){
-      const doneCount=tasks.filter(t=>t.done).length;
-      const percent=Math.floor(doneCount/tasks.length*100);
-      progressCircle.style.background=`conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
-      progressCircle.textContent=`${percent}%`;
-    } else progressCircle.textContent='0%';
-    card.appendChild(progressCircle);
-    card.addEventListener('click',()=>{selectedDate=day; render(); highlightSelectedDay();});
-    calendarSlider.appendChild(card);
+  } catch (e) {
+    console.error("خطا در دریافت داده‌ها", e);
+    return [];
   }
 }
 
-function highlightSelectedDay(){
-  document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));
-  const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);
-  if(selCard) selCard.classList.add('selected');
+// 📌 افزودن تسک جدید یا آپدیت
+async function saveTaskToServer(task){
+  await fetch(API_URL, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(task)
+  });
 }
 
+// 📌 حذف تسک
+async function deleteTaskServer(id){
+  await fetch(API_URL, {
+    method:'DELETE',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id})
+  });
+}
+
+// 📌 فرمت تاریخ
+function formatDateKey(d){
+  return d.toISOString().split('T')[0];
+}
+
+// 📌 رندر لیست
 async function render(){
-  const key=formatDateKey(selectedDate);
-  const tasks=await fetchTasks(key);
-  listEl.innerHTML='';
-  if(!tasks || !tasks.length){ document.getElementById('empty').style.display='block'; } else{ document.getElementById('empty').style.display='none'; }
+  const key = formatDateKey(selectedDate);
+  const tasks = await fetchTasks(key);
+
+  listEl.innerHTML = '';
+  if(!tasks.length){
+    document.getElementById('empty').style.display='block';
+    return;
+  } else {
+    document.getElementById('empty').style.display='none';
+  }
 
   tasks.forEach(task=>{
-    const el=document.createElement('div'); el.className='todo '+(task.done?'done':'pending');
-    const left=document.createElement('div'); left.className='left';
-    const h3=document.createElement('h3'); h3.textContent=task.title;
-    const meta=document.createElement('div'); meta.className='meta';
-    const subj=document.createElement('div'); subj.className='subject-badge'; subj.textContent=task.subject;
-    meta.appendChild(subj); left.appendChild(h3); left.appendChild(meta);
+    const el=document.createElement('div');
+    el.className='todo '+(task.done?'done':'pending');
 
-    const timerContainer=document.createElement('div'); timerContainer.className='timer-container';
-    const timerDiv=document.createElement('div'); timerDiv.className='timer-circle';
-    const timerText=document.createElement('span'); timerText.textContent=new Date((task.elapsed||0)*1000).toISOString().substr(11,8);
-    timerDiv.appendChild(timerText);
-    timerContainer.appendChild(timerDiv);
+    const left=document.createElement('div');
+    left.className='left';
 
-    const goalInput=document.createElement('input'); goalInput.type='number'; goalInput.min='1'; goalInput.value=task.goalMinutes||60;
-    goalInput.style.width='50px'; goalInput.title='هدف مطالعه (دقیقه)';
-    goalInput.addEventListener('change', async e=>{const val=parseInt(e.target.value); if(val>0){task.goalMinutes=val; await updateTaskServer({...task, action:'update'});} else e.target.value=task.goalMinutes;});
-    timerContainer.appendChild(goalInput);
-    left.appendChild(timerContainer);
+    const h3=document.createElement('h3');
+    h3.textContent=task.title;
+    left.appendChild(h3);
+
+    const meta=document.createElement('div');
+    meta.className='meta';
+    const subj=document.createElement('div');
+    subj.textContent=task.subject;
+    subj.className='subject-badge';
+    meta.appendChild(subj);
+    left.appendChild(meta);
+
+    // 🎯 تایمر
+    const timer=document.createElement('div');
+    timer.className='timer';
+    let sec=0, interval=null;
+
+    const timerEl=document.createElement('span');
+    timerEl.textContent='00:00';
+    timer.appendChild(timerEl);
+
+    const startBtn=document.createElement('button');
+    startBtn.textContent='شروع';
+    startBtn.addEventListener('click', ()=>{
+      if(interval) return;
+      interval=setInterval(()=>{
+        sec++;
+        const m=Math.floor(sec/60).toString().padStart(2,'0');
+        const s=(sec%60).toString().padStart(2,'0');
+        timerEl.textContent=`${m}:${s}`;
+      },1000);
+    });
+    timer.appendChild(startBtn);
+
+    const pauseBtn=document.createElement('button');
+    pauseBtn.textContent='توقف';
+    pauseBtn.addEventListener('click', ()=>{
+      clearInterval(interval);
+      interval=null;
+    });
+    timer.appendChild(pauseBtn);
+
+    const resetBtn=document.createElement('button');
+    resetBtn.textContent='ریست';
+    resetBtn.addEventListener('click', ()=>{
+      sec=0; timerEl.textContent='00:00';
+      clearInterval(interval); interval=null;
+    });
+    timer.appendChild(resetBtn);
+
+    left.appendChild(timer);
     el.appendChild(left);
 
-    const timerBtn=document.createElement('button'); timerBtn.textContent='شروع';
-    timerBtn.addEventListener('click', async ()=>{
-      if(timers[task.id]){clearInterval(timers[task.id]); delete timers[task.id]; timerBtn.textContent='شروع'; await updateTaskServer({...task, action:'update'});}
-      else {timerBtn.textContent='توقف'; timers[task.id]=setInterval(async ()=>{
-        task.elapsed=(task.elapsed||0)+1;
-        timerText.textContent=new Date(task.elapsed*1000).toISOString().substr(11,8);
-        await updateTaskServer({...task, action:'update'});
-      },1000);}
+    const actions=document.createElement('div');
+    actions.className='actions';
+
+    const doneBtn=document.createElement('button');
+    doneBtn.textContent=task.done?'نشده کن':'انجام شد';
+    doneBtn.addEventListener('click', async ()=>{
+      await saveTaskToServer({id:task.id, done:!task.done});
+      render(); generateCalendar();
     });
-    el.appendChild(timerBtn);
+    actions.appendChild(doneBtn);
 
-    const actions=document.createElement('div'); actions.className='actions';
-    const doneBtn=document.createElement('button'); doneBtn.textContent=task.done?'نشده کن':'انجام شد';
-    doneBtn.addEventListener('click', async ()=>{task.done=!task.done; await markDoneServer(task); render(); generateCalendar();});
-    const deleteBtn=document.createElement('button'); deleteBtn.textContent='حذف'; deleteBtn.className='muted-btn';
-    deleteBtn.addEventListener('click', async ()=>{if(confirm('آیا از حذف این کار مطمئن هستید؟')){await deleteTaskServer(task.id); render(); generateCalendar();}});
-    actions.appendChild(doneBtn); actions.appendChild(deleteBtn);
+    const deleteBtn=document.createElement('button');
+    deleteBtn.textContent='حذف';
+    deleteBtn.className='muted-btn';
+    deleteBtn.addEventListener('click', async ()=>{
+      if(confirm('آیا مطمئنید؟')){
+        await deleteTaskServer(task.id);
+        render(); generateCalendar();
+      }
+    });
+    actions.appendChild(deleteBtn);
+
     el.appendChild(actions);
-
     listEl.appendChild(el);
   });
 }
 
+// 📌 فرم افزودن تسک
 document.getElementById('taskForm').addEventListener('submit', async e=>{
   e.preventDefault();
-  const title=titleEl.value.trim(); if(!title) return;
-  const newTask={title,subject:subjectEl.value,date:formatDateKey(selectedDate)};
-  await addTaskToServer(newTask);
-  titleEl.value=''; render(); generateCalendar();
-});
+  const title=titleEl.value.trim(); 
+  if(!title) return;
 
-document.getElementById('todayBtn').addEventListener('click',()=>{selectedDate=new Date(); render(); highlightSelectedDay();});
-document.getElementById('clearCompleted').addEventListener('click', async ()=>{
-  const tasks=await fetchTasks(formatDateKey(selectedDate));
-  for(const t of tasks){if(t.done) await deleteTaskServer(t.id);}
-  render(); generateCalendar();
-});
-document.getElementById('autoMoveBtn').addEventListener('click', async ()=>{
-  const tasks=await fetchTasks(formatDateKey(selectedDate));
-  const tomorrow=new Date(selectedDate); tomorrow.setDate(tomorrow.getDate()+1);
-  const tKey=formatDateKey(tomorrow);
-  for(const t of tasks){if(!t.done){await addTaskToServer({...t,date:tKey}); await deleteTaskServer(t.id);}}
+  const task={
+    title,
+    subject:subjectEl.value,
+    date:formatDateKey(selectedDate),
+    goalMinutes:60
+  };
+  await saveTaskToServer(task);
+
+  titleEl.value='';
   render(); generateCalendar();
 });
 
-generateCalendar(); highlightSelectedDay(); render();
+// 📌 تقویم
+async function generateCalendar(){
+  calendarEl.innerHTML='';
+  const base=new Date(selectedDate.getFullYear(), selectedDate.getMonth(),1);
+  const today=formatDateKey(new Date());
+
+  for(let i=0;i<30;i++){
+    const d=new Date(base); d.setDate(d.getDate()+i);
+    const key=formatDateKey(d);
+
+    const cell=document.createElement('div');
+    cell.className='calendar-day';
+    cell.textContent=d.getDate();
+
+    if(key===today) cell.classList.add('today');
+    if(key===formatDateKey(selectedDate)) cell.classList.add('selected');
+
+    const tasks=await fetchTasks(key);
+    if(tasks.length){
+      const dot=document.createElement('span');
+      dot.className='dot'; cell.appendChild(dot);
+    }
+
+    cell.addEventListener('click',()=>{ selectedDate=d; render(); generateCalendar(); });
+    calendarEl.appendChild(cell);
+  }
+}
+
+// 📌 بارگذاری اولیه
+render(); generateCalendar();
 </script>
+
 </body>
 </html>
