@@ -1,41 +1,47 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Todo</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todo درسی با تایمر جذاب</title>
 <style>
-:root{--bg:#121212;--card:#1f1f1f;--accent:#3b82f6;--muted:#b0b0b0;--done:#22c55e;--pending:#ef4444;--today:#facc15;--hover:#333}
-*{box-sizing:border-box;font-family: Vazirmatn, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial}
-body{margin:0;background:var(--bg);color:#fff}
-.container{max-width:980px;margin:20px auto;padding:10px}
-header{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
-h1{margin:0;font-size:22px;color:var(--accent)}
-.card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.4)}
-form{display:grid;grid-template-columns:1fr 150px;gap:8px;align-items:end}
-input[type=text],select{width:100%;padding:8px;border-radius:8px;border:1px solid #333;background:#222;color:#fff;font-size:14px}
-button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:#000;cursor:pointer;transition:0.2s}
-button:hover{background:#2563eb;color:#fff}
-.muted-btn{background:#333;color:#fff;border-radius:8px;padding:8px;border:1px solid #555;transition:0.2s}
-.muted-btn:hover{background:#444}
-.list{margin-top:10px}
-.todo{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:10px;border:1px solid #333;margin-bottom:8px;background:var(--card)}
-.todo.done h3{color:var(--done);text-decoration:line-through}
-.todo.pending h3{color:var(--pending)}
-.meta{font-size:13px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
-.actions{display:flex;gap:6px}
-.subject-badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#333;color:#fff;font-size:12px}
-.calendar-slider{display:flex;overflow-x:auto;gap:8px;padding:8px 0;scroll-behavior:smooth;justify-content:flex-start}
-.calendar-slider::-webkit-scrollbar{display:none}
-.day-card{min-width:90px;padding:8px 10px;border-radius:12px;text-align:center;cursor:pointer;background:#2a2a2a;position:relative;flex-shrink:0;transition:0.2s}
-.day-card:hover{background:var(--hover)}
-.day-card.selected{border:2px solid var(--accent);background:#3b3b3b}
-.day-card .dot{width:10px;height:10px;border-radius:50%;position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:#555}
-.day-card .progress{height:4px;width:80%;border-radius:2px;background:#555;margin:4px auto;overflow:hidden}
-.day-card .progress-bar{height:100%;width:0%;background:var(--done);transition:0.3s}
-.today-btn{position:fixed;top:12px;left:12px;padding:8px 12px;background:var(--accent);border:none;border-radius:10px;color:#000;cursor:pointer;z-index:10;transition:0.2s}
-.today-btn:hover{background:#2563eb;color:#fff}
-.empty{padding:20px;text-align:center;color:var(--muted)}
+:root{
+  --bg:#121212; --card:#1f1f1f; --accent:#3b82f6; --muted:#b0b0b0;
+  --done:#22c55e; --pending:#ef4444; --hover:#333;
+}
+*{box-sizing:border-box;font-family: Vazirmatn, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+body{margin:0;background:var(--bg);color:#fff;}
+.container{max-width:980px;margin:20px auto;padding:10px;}
+header{display:flex;flex-direction:column;gap:10px;margin-bottom:10px;}
+h1{margin:0;font-size:22px;color:var(--accent);}
+.card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.4);}
+form{display:grid;grid-template-columns:1fr 150px;gap:8px;align-items:end;}
+input[type=text],select,input[type=number]{width:100%;padding:8px;border-radius:8px;border:1px solid #333;background:#222;color:#fff;font-size:14px;}
+button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:#000;cursor:pointer;transition:0.2s;}
+button:hover{background:#2563eb;color:#fff;}
+.muted-btn{background:#333;color:#fff;border-radius:8px;padding:8px;border:1px solid #555;transition:0.2s;}
+.muted-btn:hover{background:#444;}
+.list{margin-top:10px;}
+.todo{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:10px;border:1px solid #333;margin-bottom:8px;background:var(--card);flex-direction:column;transition:0.3s;position:relative;}
+.todo.done{background:#183d1b; border-color:#22c55e;}
+.todo.pending{background:#3b1a1a; border-color:#ef4444;}
+.meta{font-size:13px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.subject-badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#333;color:#fff;font-size:12px;}
+.timer-container{display:flex;align-items:center;gap:8px;margin-top:6px;}
+.timer-circle{width:70px;height:70px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:#fff;flex-shrink:0;background: conic-gradient(var(--accent) 0% 0%, #555 0% 100%); transition: background 0.5s linear;}
+.timer-circle span{position:relative;z-index:2;}
+.calendar-slider{display:flex;overflow-x:auto;gap:12px;padding:8px 0;scroll-behavior:smooth;justify-content:flex-start;}
+.calendar-slider::-webkit-scrollbar{display:none;}
+.day-card{min-width:90px;padding:8px 10px;border-radius:12px;text-align:center;cursor:pointer;background:#2a2a2a;position:relative;flex-shrink:0;transition:0.3s;box-shadow:0 2px 6px rgba(0,0,0,0.5);}
+.day-card:hover{background:var(--hover);}
+.day-card.selected{border:2px solid var(--accent);background:#3b3b3b;box-shadow:0 4px 10px rgba(0,0,0,0.8);}
+.progress-circle{width:40px;height:40px;border-radius:50%;background:conic-gradient(var(--done) 0% 0%, #555 0% 100%);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;color:#fff;margin:auto;margin-top:6px;transition:0.5s;}
+.today-btn{position:fixed;top:12px;left:12px;padding:8px 12px;background:var(--accent);border:none;border-radius:10px;color:#000;cursor:pointer;z-index:10;transition:0.2s;}
+.today-btn:hover{background:#2563eb;color:#fff;}
+.empty{padding:20px;text-align:center;color:var(--muted);}
+.auto-move-btn{margin-top:8px;background:#f59e0b;color:#000;border-radius:8px;padding:6px;border:0;cursor:pointer;}
+.auto-move-btn:hover{background:#d97706;color:#fff;}
 @media(max-width:720px){form{grid-template-columns:1fr} .calendar-slider{gap:4px} .day-card{min-width:70px;padding:6px 6px;font-size:12px}}
 </style>
 </head>
@@ -44,7 +50,7 @@ button:hover{background:#2563eb;color:#fff}
 <button class="today-btn" id="todayBtn">بازگشت به امروز</button>
 <header>
 <h1>لیست کارهای درسی</h1>
-<div class="calendar-slider" style="direction: ltr !important;" id="calendarSlider"></div>
+<div class="calendar-slider" id="calendarSlider"></div>
 </header>
 <section class="card">
 <form id="taskForm" autocomplete="off">
@@ -67,6 +73,7 @@ button:hover{background:#2563eb;color:#fff}
 <div style="grid-column:1/-1">
 <button id="addBtn" type="submit">افزودن کار</button>
 <button id="clearCompleted" type="button" class="muted-btn">حذف انجام‌شده‌ها</button>
+<button id="autoMoveBtn" type="button" class="auto-move-btn">انتقال خودکار کارهای انجام نشده به فردا</button>
 </div>
 </form>
 <div class="list" id="list"></div>
@@ -75,32 +82,165 @@ button:hover{background:#2563eb;color:#fff}
 </div>
 <script>
 function toJalali(date){return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(date)}
-const LS_KEY='todoAppTasksByDate_v5';
+const LS_KEY='todoAppTasks_v20', STUDY_LS_KEY='studyTime_v20';
 let tasks=JSON.parse(localStorage.getItem(LS_KEY)||'{}');
-let selectedDate=new Date();
+let studyTime=JSON.parse(localStorage.getItem(STUDY_LS_KEY)||'{}');
+let timers={}; let selectedDate=new Date();
 const listEl=document.getElementById('list'),calendarSlider=document.getElementById('calendarSlider');
 const titleEl=document.getElementById('title'),subjectEl=document.getElementById('subject');
 function formatDateKey(d){return d.toISOString().split('T')[0]}
 function saveTasks(){localStorage.setItem(LS_KEY,JSON.stringify(tasks))}
-function generateCalendar(){calendarSlider.innerHTML='';const today=new Date();for(let i=0;i<30;i++){const day=new Date();day.setDate(today.getDate()+i);const key=formatDateKey(day);const card=document.createElement('div');card.className='day-card';card.dataset.date=key;card.innerHTML=`<div>${toJalali(day)}</div>`;
-if(tasks[key]&&tasks[key].length){const doneCount=tasks[key].filter(t=>t.done).length;
-const progress=document.createElement('div');progress.className='progress';const bar=document.createElement('div');bar.className='progress-bar';bar.style.width=(doneCount/tasks[key].length*100)+'%';progress.appendChild(bar);card.appendChild(progress);}
-card.addEventListener('click',()=>{selectedDate=day;render();highlightSelectedDay();});
-calendarSlider.appendChild(card);}}
-function highlightSelectedDay(){document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);if(selCard)selCard.classList.add('selected');}
-function addTask(e){e.preventDefault();const title=titleEl.value.trim();if(!title)return;const key=formatDateKey(selectedDate);if(!tasks[key])tasks[key]=[];tasks[key].unshift({title,subject:subjectEl.value,done:false,createdAt:new Date().toISOString()});saveTasks();titleEl.value='';render();generateCalendar();}
-function render(){const key=formatDateKey(selectedDate);let visible=(tasks[key]||[]).slice();listEl.innerHTML='';if(!visible.length){document.getElementById('empty').style.display='block';return;}document.getElementById('empty').style.display='none';visible.forEach((task,index)=>{const el=document.createElement('div');el.className='todo '+(task.done?'done':'pending');const left=document.createElement('div');left.className='left';const h=document.createElement('h3');h.textContent=task.title;left.appendChild(h);
-const meta=document.createElement('div');meta.className='meta';const subj=document.createElement('div');subj.textContent=task.subject;subj.className='subject-badge';meta.appendChild(subj);left.appendChild(meta);
-const actions=document.createElement('div');actions.className='actions';
-const doneBtn=document.createElement('button');doneBtn.textContent=task.done?'نشده کن':'انجام شد';doneBtn.addEventListener('click',()=>{task.done=!task.done;saveTasks();render();generateCalendar();});
-const moveBtn=document.createElement('button');moveBtn.textContent='انتقال به فردا';moveBtn.addEventListener('click',()=>{const tomorrow=new Date(selectedDate);tomorrow.setDate(tomorrow.getDate()+1);const tKey=formatDateKey(tomorrow);if(!tasks[tKey])tasks[tKey]=[];tasks[tKey].push(task);tasks[key].splice(index,1);saveTasks();render();generateCalendar();});
-const delBtn=document.createElement('button');delBtn.textContent='حذف';delBtn.addEventListener('click',()=>{if(!confirm('حذف شود؟'))return;tasks[key]=tasks[key].filter((t,i)=>i!==index);saveTasks();render();generateCalendar();});
-actions.appendChild(doneBtn);actions.appendChild(moveBtn);actions.appendChild(delBtn);
-el.appendChild(left);el.appendChild(actions);listEl.appendChild(el);});highlightSelectedDay();}
-document.getElementById('taskForm').addEventListener('submit',addTask);
-document.getElementById('clearCompleted').addEventListener('click',()=>{const key=formatDateKey(selectedDate);if(!tasks[key])return;tasks[key]=tasks[key].filter(t=>!t.done);saveTasks();render();generateCalendar();});
-document.getElementById('todayBtn').addEventListener('click',()=>{selectedDate=new Date();render();generateCalendar();});
-window.addEventListener('load',()=>{generateCalendar();render();});
+function saveStudyTime(){localStorage.setItem(STUDY_LS_KEY,JSON.stringify(studyTime))}
+
+// Calendar
+function generateCalendar(){
+  calendarSlider.innerHTML='';
+  const today=new Date();
+  for(let i=0;i<30;i++){
+    const day=new Date(); day.setDate(today.getDate()+i);
+    const key=formatDateKey(day);
+    const card=document.createElement('div'); card.className='day-card'; card.dataset.date=key;
+    card.innerHTML=`<div>${toJalali(day)}</div>`;
+    const progressCircle=document.createElement('div'); progressCircle.className='progress-circle';
+    if(tasks[key]&&tasks[key].length){
+      const doneCount=tasks[key].filter(t=>t.done).length;
+      const percent=Math.floor(doneCount/tasks[key].length*100);
+      progressCircle.style.background=`conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
+      progressCircle.textContent=`${percent}%`;
+    } else progressCircle.textContent='0%';
+    card.appendChild(progressCircle);
+    card.addEventListener('click',()=>{selectedDate=day; render(); highlightSelectedDay();});
+    calendarSlider.appendChild(card);
+  }
+}
+function highlightSelectedDay(){
+  document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));
+  const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);
+  if(selCard) selCard.classList.add('selected');
+}
+
+// Add Task
+document.getElementById('taskForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const title=titleEl.value.trim(); if(!title) return;
+  const key=formatDateKey(selectedDate);
+  if(!tasks[key]) tasks[key]=[];
+  tasks[key].unshift({title,subject:subjectEl.value,done:false,createdAt:new Date().toISOString(),goalMinutes:60});
+  saveTasks(); titleEl.value=''; render(); generateCalendar();
+});
+
+// Render
+function render(){
+  const key=formatDateKey(selectedDate);
+  let visible=(tasks[key]||[]).slice(); listEl.innerHTML='';
+  if(!visible.length){document.getElementById('empty').style.display='block';}else{document.getElementById('empty').style.display='none';}
+  visible.forEach((task,index)=>{
+    const el=document.createElement('div'); el.className='todo '+(task.done?'done':'pending');
+    const left=document.createElement('div'); left.className='left';
+    const h3=document.createElement('h3'); h3.textContent=task.title; left.appendChild(h3);
+    const meta=document.createElement('div'); meta.className='meta';
+    const subj=document.createElement('div'); subj.textContent=task.subject; subj.className='subject-badge'; meta.appendChild(subj);
+    left.appendChild(meta);
+
+    if(!studyTime[key]) studyTime[key]={};
+    if(!studyTime[key][task.title]) studyTime[key][task.title]={minutes:0,seconds:0};
+
+    const timerContainer=document.createElement('div'); timerContainer.className='timer-container';
+    const timerDiv=document.createElement('div'); timerDiv.className='timer-circle';
+    const timerText=document.createElement('span');
+    function formatTime(totalSec){const h=Math.floor(totalSec/3600); const m=Math.floor((totalSec%3600)/60); const s=totalSec%60; return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`}
+    const initialSec=studyTime[key][task.title].minutes*60 + studyTime[key][task.title].seconds;
+    timerText.textContent=formatTime(initialSec);
+    timerDiv.appendChild(timerText);
+
+    const goalInput=document.createElement('input'); goalInput.type='number'; goalInput.min='1'; goalInput.value=task.goalMinutes;
+    goalInput.style.width='50px'; goalInput.title='هدف مطالعه (دقیقه)';
+    goalInput.addEventListener('change',(e)=>{
+      const val=parseInt(e.target.value);
+      if(!isNaN(val) && val>0){task.goalMinutes=val; saveTasks();}
+      else e.target.value=task.goalMinutes;
+    });
+
+    timerContainer.appendChild(timerDiv); timerContainer.appendChild(goalInput); left.appendChild(timerContainer);
+
+    const timerBtn=document.createElement('button'); timerBtn.textContent='شروع';
+    timerBtn.addEventListener('click',()=>{
+      if(timers[task.title]){clearInterval(timers[task.title]); timers[task.title]=null; timerBtn.textContent='شروع'; saveStudyTime();}
+      else{
+        timerBtn.textContent='توقف';
+        timers[task.title]=setInterval(()=>{
+          let totalSec=studyTime[key][task.title].minutes*60 + studyTime[key][task.title].seconds +1;
+          studyTime[key][task.title].minutes=Math.floor(totalSec/60);
+          studyTime[key][task.title].seconds=totalSec%60;
+          timerText.textContent=formatTime(totalSec);
+          const totalGoalSec=task.goalMinutes*60;
+          const percent=Math.min(100, Math.floor(totalSec/totalGoalSec*100));
+          let color=percent<50?'#3b82f6':percent<80?'#f59e0b':'#22c55e';
+          timerDiv.style.background=`conic-gradient(${color} 0% ${percent}%, #555 ${percent}% 100%)`;
+          saveStudyTime();
+        },1000);
+      }
+    });
+
+    el.appendChild(left); el.appendChild(timerBtn);
+
+    const actions=document.createElement('div'); actions.className='actions';
+    const doneBtn=document.createElement('button'); 
+    doneBtn.textContent=task.done?'نشده کن':'انجام شد';
+    doneBtn.addEventListener('click',()=>{task.done=!task.done; saveTasks(); render(); generateCalendar();});
+
+    const moveBtn=document.createElement('button'); 
+    moveBtn.textContent='انتقال به فردا';
+    moveBtn.addEventListener('click',()=>{
+      const tomorrow=new Date(selectedDate); tomorrow.setDate(tomorrow.getDate()+1);
+      const tKey=formatDateKey(tomorrow);
+      if(!tasks[tKey]) tasks[tKey]=[];
+      tasks[tKey].push({...task});
+      if(timers[task.title]){clearInterval(timers[task.title]); delete timers[task.title];}
+      tasks[key].splice(index,1);
+      saveTasks(); render(); generateCalendar();
+    });
+
+    const deleteBtn=document.createElement('button'); 
+    deleteBtn.textContent='حذف';
+    deleteBtn.className='muted-btn';
+    deleteBtn.addEventListener('click',()=>{
+      if(confirm('آیا از حذف این کار مطمئن هستید؟')){
+        if(timers[task.title]){clearInterval(timers[task.title]); delete timers[task.title];}
+        tasks[key].splice(index,1);
+        saveTasks(); saveStudyTime(); render(); generateCalendar();
+      }
+    });
+
+    actions.appendChild(doneBtn); 
+    actions.appendChild(moveBtn); 
+    actions.appendChild(deleteBtn);
+
+    el.appendChild(actions);
+    listEl.appendChild(el);
+  });
+}
+
+// دکمه‌ها
+document.getElementById('clearCompleted').addEventListener('click',()=>{
+  const key=formatDateKey(selectedDate);
+  if(tasks[key]) tasks[key]=tasks[key].filter(t=>!t.done);
+  saveTasks(); render(); generateCalendar();
+});
+document.getElementById('autoMoveBtn').addEventListener('click',()=>{
+  const key=formatDateKey(selectedDate);
+  if(!tasks[key]) return;
+  const tomorrow=new Date(selectedDate); tomorrow.setDate(tomorrow.getDate()+1);
+  const tKey=formatDateKey(tomorrow);
+  if(!tasks[tKey]) tasks[tKey]=[];
+  tasks[key].forEach(t=>{if(!t.done) tasks[tKey].push({...t})});
+  tasks[key]=tasks[key].filter(t=>t.done);
+  saveTasks(); render(); generateCalendar();
+});
+document.getElementById('todayBtn').addEventListener('click',()=>{selectedDate=new Date(); render(); highlightSelectedDay();});
+
+// init
+generateCalendar(); highlightSelectedDay(); render();
 </script>
 </body>
 </html>
