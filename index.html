@@ -5,32 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Todo درسی با تقویم اسلایدری</title>
 <style>
-:root{--bg:#121212;--card:#1e1e1e;--accent:#3b82f6;--muted:#b0b0b0;--done:#10b981;--today:#facc15}
+:root{--bg:#121212;--card:#1f1f1f;--accent:#3b82f6;--muted:#b0b0b0;--done:#22c55e;--pending:#ef4444;--today:#facc15;--hover:#333}
 *{box-sizing:border-box;font-family: Vazirmatn, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial}
 body{margin:0;background:var(--bg);color:#fff}
 .container{max-width:980px;margin:20px auto;padding:10px}
 header{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
-h1{margin:0;font-size:20px}
-.card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 4px 10px rgba(0,0,0,0.3)}
-form{display:grid;grid-template-columns:1fr 150px 120px;gap:8px;align-items:end}
-input[type=text],input[type=date],select,textarea{width:100%;padding:8px;border-radius:8px;border:1px solid #333;background:#222;color:#fff;font-size:14px}
-button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer}
-.muted-btn{background:#333;color:#fff;border-radius:8px;padding:8px;border:1px solid #555}
+h1{margin:0;font-size:22px;color:var(--accent)}
+.card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.4)}
+form{display:grid;grid-template-columns:1fr 150px;gap:8px;align-items:end}
+input[type=text],select{width:100%;padding:8px;border-radius:8px;border:1px solid #333;background:#222;color:#fff;font-size:14px}
+button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:#000;cursor:pointer;transition:0.2s}
+button:hover{background:#2563eb;color:#fff}
+.muted-btn{background:#333;color:#fff;border-radius:8px;padding:8px;border:1px solid #555;transition:0.2s}
+.muted-btn:hover{background:#444}
 .list{margin-top:10px}
-.todo{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:10px;border:1px solid #333;margin-bottom:8px;background:#1e1e1e}
-.todo h3{margin:0 0 4px 0;font-size:15px}
+.todo{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:10px;border:1px solid #333;margin-bottom:8px;background:var(--card)}
+.todo.done h3{color:var(--done);text-decoration:line-through}
+.todo.pending h3{color:var(--pending)}
 .meta{font-size:13px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
 .actions{display:flex;gap:6px}
 .subject-badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#333;color:#fff;font-size:12px}
-.search{display:flex;gap:6px;margin-top:10px}
-.calendar-slider{display:flex;overflow-x:auto;gap:6px;padding:6px 0}
-.day-card{min-width:80px;padding:6px 10px;border-radius:10px;text-align:center;cursor:pointer;background:#2a2a2a;position:relative;flex-shrink:0}
-.day-card.selected{border:2px solid var(--accent)}
-.day-card .dot{width:8px;height:8px;border-radius:50%;position:absolute;bottom:4px;left:50%;transform:translateX(-50%);background:#555}
-.day-card .dot.hasTask{background:var(--accent)}
-.today-btn{position:fixed;top:12px;left:12px;padding:8px 12px;background:var(--accent);border:none;border-radius:10px;color:#000;cursor:pointer;z-index:10}
+.calendar-slider{display:flex;overflow-x:auto;gap:8px;padding:8px 0;scroll-behavior:smooth;justify-content:flex-start}
+.calendar-slider::-webkit-scrollbar{display:none}
+.day-card{min-width:90px;padding:8px 10px;border-radius:12px;text-align:center;cursor:pointer;background:#2a2a2a;position:relative;flex-shrink:0;transition:0.2s}
+.day-card:hover{background:var(--hover)}
+.day-card.selected{border:2px solid var(--accent);background:#3b3b3b}
+.day-card .dot{width:10px;height:10px;border-radius:50%;position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:#555}
+.day-card .progress{height:4px;width:80%;border-radius:2px;background:#555;margin:4px auto;overflow:hidden}
+.day-card .progress-bar{height:100%;width:0%;background:var(--done);transition:0.3s}
+.today-btn{position:fixed;top:12px;left:12px;padding:8px 12px;background:var(--accent);border:none;border-radius:10px;color:#000;cursor:pointer;z-index:10;transition:0.2s}
+.today-btn:hover{background:#2563eb;color:#fff}
 .empty{padding:20px;text-align:center;color:var(--muted)}
-@media(max-width:720px){form{grid-template-columns:1fr} .calendar-slider{gap:4px} .day-card{min-width:60px;padding:4px 6px;font-size:12px}}
+@media(max-width:720px){form{grid-template-columns:1fr} .calendar-slider{gap:4px} .day-card{min-width:70px;padding:6px 6px;font-size:12px}}
 </style>
 </head>
 <body>
@@ -38,8 +44,7 @@ button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);colo
 <button class="today-btn" id="todayBtn">بازگشت به امروز</button>
 <header>
 <h1>لیست کارهای درسی</h1>
-<div class="subject-badge">درس‌ها: شیمی، فیزیک، زیست، ریاضی، ادبیات، دینی، زبان</div>
-<div class="calendar-slider" id="calendarSlider"></div>
+<div class="calendar-slider" style="direction: ltr !important;" id="calendarSlider"></div>
 </header>
 <section class="card">
 <form id="taskForm" autocomplete="off">
@@ -60,27 +65,8 @@ button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);colo
 </select>
 </div>
 <div style="grid-column:1/-1">
-<label for="notes">توضیحات (اختیاری)</label>
-<textarea id="notes" rows="2" placeholder="یادداشت کوتاه"></textarea>
-</div>
-<div style="grid-column:1/-1">
 <button id="addBtn" type="submit">افزودن کار</button>
 <button id="clearCompleted" type="button" class="muted-btn">حذف انجام‌شده‌ها</button>
-</div>
-<div style="grid-column:1/-1">
-<div class="search">
-<input id="searchInput" type="text" placeholder="جستجو..." />
-<select id="filterSubject">
-<option value="">همه دروس</option>
-<option value="شیمی">شیمی</option>
-<option value="فیزیک">فیزیک</option>
-<option value="زیست">زیست</option>
-<option value="ریاضی">ریاضی</option>
-<option value="ادبیات">ادبیات</option>
-<option value="دینی">دینی</option>
-<option value="زبان">زبان</option>
-</select>
-</div>
 </div>
 </form>
 <div class="list" id="list"></div>
@@ -89,24 +75,31 @@ button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);colo
 </div>
 <script>
 function toJalali(date){return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(date)}
-const LS_KEY='todoAppTasksByDate_v1';
-const SUBJECTS=["شیمی","فیزیک","زیست","ریاضی","ادبیات","دینی","زبان"];
+const LS_KEY='todoAppTasksByDate_v5';
 let tasks=JSON.parse(localStorage.getItem(LS_KEY)||'{}');
 let selectedDate=new Date();
 const listEl=document.getElementById('list'),calendarSlider=document.getElementById('calendarSlider');
-const titleEl=document.getElementById('title'),subjectEl=document.getElementById('subject'),notesEl=document.getElementById('notes');
-const searchInput=document.getElementById('searchInput'),filterSubject=document.getElementById('filterSubject');
-const sortBy=document.getElementById('sortBy'),clearCompleted=document.getElementById('clearCompleted');
+const titleEl=document.getElementById('title'),subjectEl=document.getElementById('subject');
 function formatDateKey(d){return d.toISOString().split('T')[0]}
 function saveTasks(){localStorage.setItem(LS_KEY,JSON.stringify(tasks))}
-function generateCalendar(){calendarSlider.innerHTML='';for(let i=0;i<30;i++){const day=new Date();day.setDate(selectedDate.getDate()-selectedDate.getDay()+i);const key=formatDateKey(day);const card=document.createElement('div');card.className='day-card';card.dataset.date=key;card.innerHTML=`<div>${toJalali(day)}</div><div class="dot ${tasks[key]&&tasks[key].length?'hasTask':''}"></div>`;card.addEventListener('click',()=>{selectedDate=day;render();highlightSelectedDay();});calendarSlider.appendChild(card);}}
+function generateCalendar(){calendarSlider.innerHTML='';const today=new Date();for(let i=0;i<30;i++){const day=new Date();day.setDate(today.getDate()+i);const key=formatDateKey(day);const card=document.createElement('div');card.className='day-card';card.dataset.date=key;card.innerHTML=`<div>${toJalali(day)}</div>`;
+if(tasks[key]&&tasks[key].length){const doneCount=tasks[key].filter(t=>t.done).length;
+const progress=document.createElement('div');progress.className='progress';const bar=document.createElement('div');bar.className='progress-bar';bar.style.width=(doneCount/tasks[key].length*100)+'%';progress.appendChild(bar);card.appendChild(progress);}
+card.addEventListener('click',()=>{selectedDate=day;render();highlightSelectedDay();});
+calendarSlider.appendChild(card);}}
 function highlightSelectedDay(){document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);if(selCard)selCard.classList.add('selected');}
-function addTask(e){e.preventDefault();const title=titleEl.value.trim();if(!title)return;const key=formatDateKey(selectedDate);if(!tasks[key])tasks[key]=[];tasks[key].unshift({title,subject:subjectEl.value,notes:notesEl.value,done:false,createdAt:new Date().toISOString()});saveTasks();titleEl.value='';notesEl.value='';render();generateCalendar();}
-function render(){const key=formatDateKey(selectedDate);let visible=(tasks[key]||[]).slice();const q=searchInput.value.trim().toLowerCase();if(filterSubject.value)visible=visible.filter(t=>t.subject===filterSubject.value);if(q)visible=visible.filter(t=>(t.title+' '+t.notes).toLowerCase().includes(q));listEl.innerHTML='';if(!visible.length){document.getElementById('empty').style.display='block';return;}document.getElementById('empty').style.display='none';visible.forEach(task=>{const el=document.createElement('div');el.className='todo card';const left=document.createElement('div');left.className='left';const h=document.createElement('h3');h.textContent=task.title;if(task.done)h.style.textDecoration='line-through';const meta=document.createElement('div');meta.className='meta';const subj=document.createElement('div');subj.textContent=task.subject;subj.className='subject-badge';const created=document.createElement('div');created.textContent='ایجاد: '+toJalali(new Date(task.createdAt));meta.appendChild(subj);meta.appendChild(created);if(task.notes){const note=document.createElement('div');note.textContent=task.notes;meta.appendChild(note);}left.appendChild(h);left.appendChild(meta);const actions=document.createElement('div');actions.className='actions';const doneBtn=document.createElement('button');doneBtn.className=task.done?'muted-btn complete':'muted-btn';doneBtn.textContent=task.done?'نشده کن':'انجام شد';doneBtn.addEventListener('click',()=>{task.done=!task.done;saveTasks();render();generateCalendar();});const editBtn=document.createElement('button');editBtn.className='muted-btn';editBtn.textContent='ویرایش';editBtn.addEventListener('click',()=>{const newTitle=prompt('عنوان جدید:',task.title);if(newTitle!==null)task.title=newTitle.trim()||task.title;const newSubject=prompt('درس:',task.subject);if(newSubject!==null&&newSubject.trim())task.subject=newSubject.trim();const newNotes=prompt('یادداشت:',task.notes);if(newNotes!==null)task.notes=newNotes.trim();saveTasks();render();generateCalendar();});const delBtn=document.createElement('button');delBtn.className='muted-btn';delBtn.textContent='حذف';delBtn.addEventListener('click',()=>{if(!confirm('حذف شود؟'))return;tasks[key]=tasks[key].filter(t=>t!==task);saveTasks();render();generateCalendar();});actions.appendChild(doneBtn);actions.appendChild(editBtn);actions.appendChild(delBtn);el.appendChild(left);el.appendChild(actions);listEl.appendChild(el);});highlightSelectedDay();}
+function addTask(e){e.preventDefault();const title=titleEl.value.trim();if(!title)return;const key=formatDateKey(selectedDate);if(!tasks[key])tasks[key]=[];tasks[key].unshift({title,subject:subjectEl.value,done:false,createdAt:new Date().toISOString()});saveTasks();titleEl.value='';render();generateCalendar();}
+function render(){const key=formatDateKey(selectedDate);let visible=(tasks[key]||[]).slice();listEl.innerHTML='';if(!visible.length){document.getElementById('empty').style.display='block';return;}document.getElementById('empty').style.display='none';visible.forEach((task,index)=>{const el=document.createElement('div');el.className='todo '+(task.done?'done':'pending');const left=document.createElement('div');left.className='left';const h=document.createElement('h3');h.textContent=task.title;left.appendChild(h);
+const meta=document.createElement('div');meta.className='meta';const subj=document.createElement('div');subj.textContent=task.subject;subj.className='subject-badge';meta.appendChild(subj);left.appendChild(meta);
+const actions=document.createElement('div');actions.className='actions';
+const doneBtn=document.createElement('button');doneBtn.textContent=task.done?'نشده کن':'انجام شد';doneBtn.addEventListener('click',()=>{task.done=!task.done;saveTasks();render();generateCalendar();});
+const moveBtn=document.createElement('button');moveBtn.textContent='انتقال به فردا';moveBtn.addEventListener('click',()=>{const tomorrow=new Date(selectedDate);tomorrow.setDate(tomorrow.getDate()+1);const tKey=formatDateKey(tomorrow);if(!tasks[tKey])tasks[tKey]=[];tasks[tKey].push(task);tasks[key].splice(index,1);saveTasks();render();generateCalendar();});
+const delBtn=document.createElement('button');delBtn.textContent='حذف';delBtn.addEventListener('click',()=>{if(!confirm('حذف شود؟'))return;tasks[key]=tasks[key].filter((t,i)=>i!==index);saveTasks();render();generateCalendar();});
+actions.appendChild(doneBtn);actions.appendChild(moveBtn);actions.appendChild(delBtn);
+el.appendChild(left);el.appendChild(actions);listEl.appendChild(el);});highlightSelectedDay();}
 document.getElementById('taskForm').addEventListener('submit',addTask);
-clearCompleted.addEventListener('click',()=>{const key=formatDateKey(selectedDate);if(!tasks[key])return;tasks[key]=tasks[key].filter(t=>!t.done);saveTasks();render();generateCalendar();});
+document.getElementById('clearCompleted').addEventListener('click',()=>{const key=formatDateKey(selectedDate);if(!tasks[key])return;tasks[key]=tasks[key].filter(t=>!t.done);saveTasks();render();generateCalendar();});
 document.getElementById('todayBtn').addEventListener('click',()=>{selectedDate=new Date();render();generateCalendar();});
-searchInput.addEventListener('input',render);filterSubject.addEventListener('change',render);
 window.addEventListener('load',()=>{generateCalendar();render();});
 </script>
 </body>
