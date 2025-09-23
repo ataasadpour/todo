@@ -84,158 +84,123 @@ button:hover{background:#2563eb;color:#fff;}
 <script>
 function toJalali(date){return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(date)}
 
+const API_URL = "https://nailonasadpour.ir/todo/api.php";
+
 let timers = {};
 let timerStarts = {};
 let selectedDate = new Date();
-
-const listEl = document.getElementById('list');
-const calendarSlider = document.getElementById('calendarSlider');
-const titleEl = document.getElementById('title');
-const subjectEl = document.getElementById('subject');
-
-const API_URL = "https://nailonasadpour.ir/todo/api.php";
+const listEl=document.getElementById('list');
+const calendarSlider=document.getElementById('calendarSlider');
+const titleEl=document.getElementById('title');
+const subjectEl=document.getElementById('subject');
 
 function formatDateKey(d){ return d.toISOString().split('T')[0]; }
 
-// --- API Helpers ---
-async function fetchTasks() {
-    const res = await fetch(`${API_URL}?action=getTasks`);
-    const data = await res.json();
-    const tasksByDate = {};
-    data.forEach(t => {
-        const d = t.created_at.split(' ')[0];
-        if(!tasksByDate[d]) tasksByDate[d] = [];
-        tasksByDate[d].push({...t, subject: t.subject || "عمومی"});
-    });
-    return tasksByDate;
+async function fetchTasks(){
+  const res = await fetch(`${API_URL}?action=getTasks`);
+  const data = await res.json();
+  const tasksByDate = {};
+  data.forEach(t=>{
+    const d = t.created_at.split(' ')[0];
+    if(!tasksByDate[d]) tasksByDate[d]=[];
+    tasksByDate[d].push({...t, subject: t.subject||"عمومی"});
+  });
+  return tasksByDate;
 }
 
 async function addTaskToServer(task){
-    await fetch(`${API_URL}?action=addTask`, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(task)
-    });
+  await fetch(`${API_URL}?action=addTask`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(task)
+  });
 }
 
-async function updateTaskServer(id, done){
-    await fetch(`${API_URL}?action=updateTask`, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({id, done})
-    });
+async function updateTaskServer(id,done){
+  await fetch(`${API_URL}?action=updateTask`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({id,done})
+  });
 }
 
 async function deleteTaskServer(id){
-    await fetch(`${API_URL}?action=deleteTask&id=${id}`);
+  await fetch(`${API_URL}?action=deleteTask&id=${id}`);
 }
 
 // --- Calendar ---
-async function generateCalendar() {
-    calendarSlider.innerHTML = '';
-    const today = new Date();
-    const tasks = await fetchTasks();
+async function generateCalendar(){
+  calendarSlider.innerHTML='';
+  const today=new Date();
+  const tasks = await fetchTasks();
 
-    for(let i=0; i<30; i++){
-        const day = new Date(); day.setDate(today.getDate()+i);
-        const key = formatDateKey(day);
-        const card = document.createElement('div');
-        card.className='day-card';
-        card.dataset.date = key;
-        card.innerHTML = `<div>${toJalali(day)}</div>`;
-
-        const progressCircle = document.createElement('div');
-        progressCircle.className = 'progress-circle';
-
-        if(tasks[key] && tasks[key].length){
-            const doneCount = tasks[key].filter(t=>t.done==1).length;
-            const percent = Math.floor(doneCount/tasks[key].length*100);
-            progressCircle.style.background=`conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
-            progressCircle.textContent = `${percent}%`;
-        } else progressCircle.textContent='0%';
-
-        card.appendChild(progressCircle);
-        card.addEventListener('click',()=>{selectedDate=day; render(); highlightSelectedDay();});
-        calendarSlider.appendChild(card);
-    }
+  for(let i=0;i<30;i++){
+    const day=new Date(); day.setDate(today.getDate()+i);
+    const key=formatDateKey(day);
+    const card=document.createElement('div'); card.className='day-card'; card.dataset.date=key;
+    card.innerHTML=`<div>${toJalali(day)}</div>`;
+    const progressCircle=document.createElement('div'); progressCircle.className='progress-circle';
+    if(tasks[key] && tasks[key].length){
+      const doneCount = tasks[key].filter(t=>t.done==1).length;
+      const percent=Math.floor(doneCount/tasks[key].length*100);
+      progressCircle.style.background=`conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
+      progressCircle.textContent=`${percent}%`;
+    } else progressCircle.textContent='0%';
+    card.appendChild(progressCircle);
+    card.addEventListener('click',()=>{selectedDate=day; render(); highlightSelectedDay();});
+    calendarSlider.appendChild(card);
+  }
 }
 
 function highlightSelectedDay(){
-    document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));
-    const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);
-    if(selCard) selCard.classList.add('selected');
+  document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));
+  const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);
+  if(selCard) selCard.classList.add('selected');
 }
 
 // --- Render ---
 async function render(){
-    const key = formatDateKey(selectedDate);
-    const tasksData = await fetchTasks();
-    const visible = tasksData[key] || [];
-    listEl.innerHTML = '';
-    document.getElementById('empty').style.display = visible.length ? 'none':'block';
+  const key=formatDateKey(selectedDate);
+  const tasksData=await fetchTasks();
+  const visible = tasksData[key]||[];
+  listEl.innerHTML='';
+  document.getElementById('empty').style.display = visible.length?'none':'block';
 
-    visible.forEach(task=>{
-        const el = document.createElement('div');
-        el.className='todo '+(task.done==1?'done':'pending');
+  visible.forEach(task=>{
+    const el=document.createElement('div'); el.className='todo '+(task.done==1?'done':'pending');
+    const left=document.createElement('div'); left.className='left';
+    const h3=document.createElement('h3'); h3.textContent=task.title; left.appendChild(h3);
+    const meta=document.createElement('div'); meta.className='meta';
+    const subj=document.createElement('div'); subj.className='subject-badge'; subj.textContent=task.subject;
+    meta.appendChild(subj); left.appendChild(meta);
+    el.appendChild(left);
 
-        const left = document.createElement('div');
-        left.className='left';
-        const h3 = document.createElement('h3'); h3.textContent = task.title;
-        left.appendChild(h3);
-
-        const meta = document.createElement('div'); meta.className='meta';
-        const subj = document.createElement('div'); subj.className='subject-badge'; subj.textContent = task.subject;
-        meta.appendChild(subj);
-        left.appendChild(meta);
-
-        // Timer
-        const timerContainer = document.createElement('div'); timerContainer.className='timer-container';
-        const timerDiv = document.createElement('div'); timerDiv.className='timer-circle';
-        const timerText = document.createElement('span'); timerText.textContent = '00:00:00';
-        timerDiv.appendChild(timerText);
-        timerContainer.appendChild(timerDiv);
-        left.appendChild(timerContainer);
-
-        el.appendChild(left);
-
-        // Actions
-        const actions = document.createElement('div'); actions.className='actions';
-
-        const doneBtn = document.createElement('button');
-        doneBtn.textContent = task.done==1?'نشده کن':'انجام شد';
-        doneBtn.addEventListener('click',async ()=>{
-            await updateTaskServer(task.id, task.done==0?1:0);
-            render(); generateCalendar();
-        });
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className='muted-btn';
-        deleteBtn.textContent='حذف';
-        deleteBtn.addEventListener('click', async ()=>{
-            if(confirm('آیا از حذف این کار مطمئن هستید؟')){
-                await deleteTaskServer(task.id);
-                render(); generateCalendar();
-            }
-        });
-
-        actions.appendChild(doneBtn);
-        actions.appendChild(deleteBtn);
-        el.appendChild(actions);
-
-        listEl.appendChild(el);
+    const actions=document.createElement('div'); actions.className='actions';
+    const doneBtn=document.createElement('button'); doneBtn.textContent=task.done==1?'نشده کن':'انجام شد';
+    doneBtn.addEventListener('click', async ()=>{
+      await updateTaskServer(task.id, task.done==0?1:0);
+      render(); generateCalendar();
     });
+    const deleteBtn=document.createElement('button'); deleteBtn.className='muted-btn'; deleteBtn.textContent='حذف';
+    deleteBtn.addEventListener('click', async ()=>{
+      if(confirm('آیا از حذف این کار مطمئن هستید؟')){
+        await deleteTaskServer(task.id);
+        render(); generateCalendar();
+      }
+    });
+    actions.appendChild(doneBtn); actions.appendChild(deleteBtn); el.appendChild(actions);
+    listEl.appendChild(el);
+  });
 }
 
 // --- Form ---
 document.getElementById('taskForm').addEventListener('submit', async e=>{
-    e.preventDefault();
-    const title = titleEl.value.trim();
-    if(!title) return;
-    const task = {title};
-    await addTaskToServer(task);
-    titleEl.value='';
-    render();
-    generateCalendar();
+  e.preventDefault();
+  const title = titleEl.value.trim(); if(!title) return;
+  const task = {title,subject:subjectEl.value};
+  await addTaskToServer(task);
+  titleEl.value='';
+  render(); generateCalendar();
 });
 
 // --- Buttons ---
@@ -246,6 +211,5 @@ generateCalendar();
 highlightSelectedDay();
 render();
 </script>
-
 </body>
 </html>
