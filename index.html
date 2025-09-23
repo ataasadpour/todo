@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Todo</title>
+<title>Todo آفلاین + دیتابیس</title>
 <style>
 :root{
   --bg:#121212; --card:#1f1f1f; --accent:#3b82f6; --muted:#b0b0b0;
@@ -82,15 +82,8 @@ button:hover{background:#2563eb;color:#fff;}
 </div>
 
 <script>
-// ------------------------- تنظیمات و توابع اولیه -------------------------
-function toJalali(date) {
-  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', { dateStyle: 'full' }).format(date);
-}
-
-const LS_KEY = 'todoAppTasks_v20';
-const STUDY_LS_KEY = 'studyTime_v20';
-let tasks = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
-let studyTime = JSON.parse(localStorage.getItem(STUDY_LS_KEY) || '{}');
+const API_URL = 'https://nailonasadpour.ir/api.php';
+let tasks = {}; // کش محلی برای نمایش فعلی
 let timers = {}, timerStarts = {};
 let selectedDate = new Date();
 
@@ -99,264 +92,224 @@ const calendarSlider = document.getElementById('calendarSlider');
 const titleEl = document.getElementById('title');
 const subjectEl = document.getElementById('subject');
 
-function formatDateKey(d) {
-  return d.toISOString().split('T')[0];
+function formatDateKey(d){ return d.toISOString().split('T')[0]; }
+function toJalali(date){return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(date);}
+
+// --- API ---
+async function loadTasks(date){
+  const res = await fetch(`${API_URL}?action=get&date=${date}`);
+  const data = await res.json();
+  tasks[date] = data;
 }
 
-function saveLocalTasks() {
-  localStorage.setItem(LS_KEY, JSON.stringify(tasks));
+async function addTask(task){
+  const res = await fetch(`${API_URL}?action=add`,{
+    method:'POST',
+    body:JSON.stringify(task)
+  });
+  const data = await res.json();
+  task.id = data.id;
+  const key = task.date;
+  if(!tasks[key]) tasks[key]=[];
+  tasks[key].unshift(task);
 }
 
-function saveLocalStudyTime() {
-  localStorage.setItem(STUDY_LS_KEY, JSON.stringify(studyTime));
+async function updateTask(task){
+  await fetch(`${API_URL}?action=update`,{
+    method:'POST',
+    body:JSON.stringify(task)
+  });
 }
 
-// ------------------------- ارتباط با سرور -------------------------
-const API_URL = 'https://nailonasadpour.ir/todo/api.php';
-
-async function sendToServer(action, data) {
-  try {
-    const res = await fetch(`${API_URL}?action=${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return await res.json();
-  } catch (err) {
-    console.error('Server error:', err);
-    return null;
-  }
+async function deleteTask(task){
+  await fetch(`${API_URL}?action=delete&id=${task.id}`);
+  const key = task.date;
+  tasks[key] = tasks[key].filter(t=>t.id!==task.id);
 }
 
-// ------------------------- Calendar -------------------------
-function generateCalendar() {
-  if (!calendarSlider) return;
-  calendarSlider.innerHTML = '';
-  const today = new Date();
-  for (let i = 0; i < 30; i++) {
-    const day = new Date();
-    day.setDate(today.getDate() + i);
-    const key = formatDateKey(day);
-    const card = document.createElement('div');
-    card.className = 'day-card';
-    card.dataset.date = key;
-    card.innerHTML = `<div>${toJalali(day)}</div>`;
-
-    const progressCircle = document.createElement('div');
-    progressCircle.className = 'progress-circle';
-    if (tasks[key] && tasks[key].length) {
-      const doneCount = tasks[key].filter(t => t.done).length;
-      const percent = Math.floor(doneCount / tasks[key].length * 100);
-      progressCircle.style.background = `conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
-      progressCircle.textContent = `${percent}%`;
-    } else progressCircle.textContent = '0%';
-
+// --- Calendar ---
+function generateCalendar(){
+  calendarSlider.innerHTML='';
+  const today=new Date();
+  for(let i=0;i<30;i++){
+    const day=new Date(); day.setDate(today.getDate()+i);
+    const key=formatDateKey(day);
+    const card=document.createElement('div'); card.className='day-card'; card.dataset.date=key;
+    card.innerHTML=`<div>${toJalali(day)}</div>`;
+    const progressCircle=document.createElement('div'); progressCircle.className='progress-circle';
+    if(tasks[key]&&tasks[key].length){
+      const doneCount=tasks[key].filter(t=>t.done).length;
+      const percent=Math.floor(doneCount/tasks[key].length*100);
+      progressCircle.style.background=`conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
+      progressCircle.textContent=`${percent}%`;
+    } else progressCircle.textContent='0%';
     card.appendChild(progressCircle);
-    card.addEventListener('click', () => {
+    card.addEventListener('click',async ()=>{
       selectedDate = day;
-      render();
+      await render();
       highlightSelectedDay();
     });
     calendarSlider.appendChild(card);
   }
 }
 
-function highlightSelectedDay() {
-  document.querySelectorAll('.day-card').forEach(c => c.classList.remove('selected'));
-  const selCard = document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);
-  if (selCard) selCard.classList.add('selected');
+function highlightSelectedDay(){
+  document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));
+  const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);
+  if(selCard) selCard.classList.add('selected');
 }
 
-// ------------------------- اضافه کردن تسک -------------------------
-document.getElementById('taskForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  const title = titleEl.value.trim();
-  if (!title) return;
+// --- Render ---
+async function render(){
   const key = formatDateKey(selectedDate);
-  if (!tasks[key]) tasks[key] = [];
+  if(!tasks[key]) await loadTasks(key);
+  const visible = tasks[key] || [];
+  listEl.innerHTML='';
+  document.getElementById('empty').style.display = visible.length ? 'none':'block';
 
-  const newTask = { title, subject: subjectEl.value, done: false, createdAt: new Date().toISOString(), goalMinutes: 60 };
-  tasks[key].unshift(newTask);
-  saveLocalTasks();
-
-  // ارسال به سرور
-  await sendToServer('addTask', { date: key, task: newTask });
-
-  titleEl.value = '';
-  render();
-  generateCalendar();
-});
-
-// ------------------------- Render -------------------------
-async function render() {
-  const key = formatDateKey(selectedDate);
-  if (!listEl) return;
-  listEl.innerHTML = '';
-
-  let visible = (tasks[key] || []).slice();
-  document.getElementById('empty').style.display = visible.length ? 'none' : 'block';
-
-  visible.forEach((task, index) => {
-    const el = document.createElement('div');
-    el.className = 'todo ' + (task.done ? 'done' : 'pending');
-
-    const left = document.createElement('div');
-    left.className = 'left';
-
-    const h3 = document.createElement('h3');
-    h3.textContent = task.title;
-    left.appendChild(h3);
-
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    const subj = document.createElement('div');
-    subj.textContent = task.subject;
-    subj.className = 'subject-badge';
-    meta.appendChild(subj);
+  visible.forEach((task,index)=>{
+    const el = document.createElement('div'); el.className='todo '+(task.done?'done':'pending');
+    const left = document.createElement('div'); left.className='left';
+    const h3 = document.createElement('h3'); h3.textContent=task.title; left.appendChild(h3);
+    const meta = document.createElement('div'); meta.className='meta';
+    const subj = document.createElement('div'); subj.textContent=task.subject; subj.className='subject-badge'; meta.appendChild(subj);
     left.appendChild(meta);
 
-    // تایمر
-    if (!studyTime[key]) studyTime[key] = {};
-    if (!studyTime[key][task.title]) studyTime[key][task.title] = { minutes: 0, seconds: 0 };
+    // Timer
+    if(!task.study_minutes) task.study_minutes=0;
+    if(!task.study_seconds) task.study_seconds=0;
 
-    const timerContainer = document.createElement('div');
-    timerContainer.className = 'timer-container';
-    const timerDiv = document.createElement('div');
-    timerDiv.className = 'timer-circle';
-    const timerText = document.createElement('span');
-
-    function formatTime(totalSec) {
-      const h = Math.floor(totalSec / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
-      const s = totalSec % 60;
-      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    const timerContainer=document.createElement('div'); timerContainer.className='timer-container';
+    const timerDiv=document.createElement('div'); timerDiv.className='timer-circle';
+    const timerText=document.createElement('span');
+    function formatTime(totalSec){
+      const h=Math.floor(totalSec/3600);
+      const m=Math.floor((totalSec%3600)/60);
+      const s=totalSec%60;
+      return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
     }
-
-    const initialSec = studyTime[key][task.title].minutes * 60 + studyTime[key][task.title].seconds;
+    const initialSec = task.study_minutes*60 + task.study_seconds;
     timerText.textContent = formatTime(initialSec);
     timerDiv.appendChild(timerText);
 
-    const goalInput = document.createElement('input');
-    goalInput.type = 'number';
-    goalInput.min = '1';
-    goalInput.value = task.goalMinutes;
-    goalInput.style.width = '50px';
-    goalInput.title = 'هدف مطالعه (دقیقه)';
-    goalInput.addEventListener('change', e => {
-      const val = parseInt(e.target.value);
-      if (!isNaN(val) && val > 0) {
-        task.goalMinutes = val;
-        saveLocalTasks();
-        sendToServer('updateTask', { date: key, task });
-      } else e.target.value = task.goalMinutes;
+    const goalInput=document.createElement('input'); goalInput.type='number'; goalInput.min='1'; goalInput.value=task.goal_minutes;
+    goalInput.style.width='50px'; goalInput.title='هدف مطالعه (دقیقه)';
+    goalInput.addEventListener('change',async (e)=>{
+      const val=parseInt(e.target.value);
+      if(!isNaN(val) && val>0){ task.goal_minutes=val; await updateTask(task);}
+      else e.target.value = task.goal_minutes;
     });
 
-    timerContainer.appendChild(timerDiv);
-    timerContainer.appendChild(goalInput);
-    left.appendChild(timerContainer);
+    timerContainer.appendChild(timerDiv); timerContainer.appendChild(goalInput); left.appendChild(timerContainer);
 
-    const timerBtn = document.createElement('button');
-    timerBtn.textContent = 'شروع';
-    timerBtn.addEventListener('click', () => {
-      if (timers[task.title]) {
-        clearInterval(timers[task.title]);
-        timers[task.title] = null;
-        timerBtn.textContent = 'شروع';
-        saveLocalStudyTime();
-      } else {
-        timerBtn.textContent = 'توقف';
-        if (!timerStarts[task.title])
-          timerStarts[task.title] = Date.now() - (studyTime[key][task.title].minutes * 60 + studyTime[key][task.title].seconds) * 1000;
-        timers[task.title] = setInterval(() => {
-          const elapsed = Math.floor((Date.now() - timerStarts[task.title]) / 1000);
-          studyTime[key][task.title].minutes = Math.floor(elapsed / 60);
-          studyTime[key][task.title].seconds = elapsed % 60;
-          timerText.textContent = formatTime(elapsed);
-
-          const totalGoalSec = task.goalMinutes * 60;
-          const percent = Math.min(100, Math.floor(elapsed / totalGoalSec * 100));
-          let color = percent < 50 ? '#3b82f6' : percent < 80 ? '#f59e0b' : '#22c55e';
-          timerDiv.style.background = `conic-gradient(${color} 0% ${percent}%, #555 ${percent}% 100%)`;
-
-          if (elapsed % 5 === 0) saveLocalStudyTime();
-        }, 1000);
+    const timerBtn=document.createElement('button'); timerBtn.textContent='شروع';
+    timerBtn.addEventListener('click',()=>{
+      if(timers[task.id]){
+        clearInterval(timers[task.id]);
+        timers[task.id]=null;
+        timerBtn.textContent='شروع';
+        updateTask(task);
+      } else{
+        timerBtn.textContent='توقف';
+        timers[task.id] = setInterval(async ()=>{
+          let totalSec = task.study_minutes*60 + task.study_seconds +1;
+          task.study_minutes = Math.floor(totalSec/60);
+          task.study_seconds = totalSec%60;
+          timerText.textContent = formatTime(totalSec);
+          const totalGoalSec = task.goal_minutes*60;
+          const percent = Math.min(100, Math.floor(totalSec/totalGoalSec*100));
+          let color = percent<50?'#3b82f6':percent<80?'#f59e0b':'#22c55e';
+          timerDiv.style.background=`conic-gradient(${color} 0% ${percent}%, #555 ${percent}% 100%)`;
+          await updateTask(task);
+        },1000);
       }
     });
 
-    el.appendChild(left);
-    el.appendChild(timerBtn);
+    el.appendChild(left); el.appendChild(timerBtn);
 
-    // دکمه‌ها
-    const actions = document.createElement('div');
-    actions.className = 'actions';
-
-    const doneBtn = document.createElement('button');
-    doneBtn.textContent = task.done ? 'نشده کن' : 'انجام شد';
-    doneBtn.addEventListener('click', async () => {
-      task.done = !task.done;
-      saveLocalTasks();
-      await sendToServer('updateTask', { date: key, task });
+    // Actions
+    const actions=document.createElement('div'); actions.className='actions';
+    const doneBtn=document.createElement('button');
+    doneBtn.textContent = task.done?'نشده کن':'انجام شد';
+    doneBtn.addEventListener('click',async ()=>{
+      task.done=!task.done;
+      await updateTask(task);
       render();
       generateCalendar();
     });
 
-    const moveBtn = document.createElement('button');
-    moveBtn.textContent = 'انتقال به فردا';
-    moveBtn.addEventListener('click', async () => {
-      const tomorrow = new Date(selectedDate);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tKey = formatDateKey(tomorrow);
-      if (!tasks[tKey]) tasks[tKey] = [];
-      tasks[tKey].push({ ...task });
-      if (timers[task.title]) { clearInterval(timers[task.title]); delete timers[task.title]; delete timerStarts[task.title]; }
-      tasks[key].splice(index, 1);
-      saveLocalTasks();
-      await sendToServer('moveTask', { fromDate: key, toDate: tKey, task });
+    const moveBtn=document.createElement('button'); moveBtn.textContent='انتقال به فردا';
+    moveBtn.addEventListener('click',async ()=>{
+      const tomorrow=new Date(selectedDate); tomorrow.setDate(tomorrow.getDate()+1);
+      const tKey=formatDateKey(tomorrow);
+      const newTask={...task,date:tKey,id:null};
+      await addTask(newTask);
+      await deleteTask(task);
       render();
       generateCalendar();
     });
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = 'حذف';
-    deleteBtn.className = 'muted-btn';
-    deleteBtn.addEventListener('click', async () => {
-      if (confirm('آیا از حذف این کار مطمئن هستید؟')) {
-        if (timers[task.title]) { clearInterval(timers[task.title]); delete timers[task.title]; delete timerStarts[task.title]; }
-        tasks[key].splice(index, 1);
-        saveLocalTasks();
-        await sendToServer('deleteTask', { date: key, task });
-        render();
-        generateCalendar();
+    const deleteBtn=document.createElement('button'); deleteBtn.textContent='حذف'; deleteBtn.className='muted-btn';
+    deleteBtn.addEventListener('click',async ()=>{
+      if(confirm('آیا از حذف این کار مطمئن هستید؟')){
+        if(timers[task.id]){clearInterval(timers[task.id]); delete timers[task.id];}
+        await deleteTask(task);
+        render(); generateCalendar();
       }
     });
 
-    actions.appendChild(doneBtn);
-    actions.appendChild(moveBtn);
-    actions.appendChild(deleteBtn);
-
+    actions.appendChild(doneBtn); actions.appendChild(moveBtn); actions.appendChild(deleteBtn);
     el.appendChild(actions);
     listEl.appendChild(el);
   });
 }
 
-// ------------------------- دکمه‌ها -------------------------
-document.getElementById('clearCompleted').addEventListener('click', async () => {
-  const key = formatDateKey(selectedDate);
-  if (!tasks[key]) return;
-  const completed = tasks[key].filter(t => t.done);
-  tasks[key] = tasks[key].filter(t => !t.done);
-  saveLocalTasks();
-  for (let task of completed) await sendToServer('deleteTask', { date: key, task });
-  render();
-  generateCalendar();
+// --- Event Listeners ---
+document.getElementById('taskForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const title=titleEl.value.trim(); if(!title) return;
+  const key=formatDateKey(selectedDate);
+  await addTask({date:key,title,subject:subjectEl.value,done:0,goal_minutes:60,study_minutes:0,study_seconds:0});
+  titleEl.value=''; render(); generateCalendar();
 });
 
-document.getElementById('autoMoveBtn').addEventListener('click', async () => {
-  const key = formatDateKey(selectedDate);
-  if (!tasks[key]) return;
-  const tomorrow = new Date(selectedDate);
-  tomorrow.setDate(tomorrow.getDate()
+document.getElementById('clearCompleted').addEventListener('click', async ()=>{
+  const key=formatDateKey(selectedDate);
+  if(tasks[key]){
+    for(const t of [...tasks[key]]){
+      if(t.done) await deleteTask(t);
+    }
+    render(); generateCalendar();
+  }
+});
 
+document.getElementById('autoMoveBtn').addEventListener('click', async ()=>{
+  const key=formatDateKey(selectedDate);
+  if(!tasks[key]) return;
+  const tomorrow=new Date(selectedDate); tomorrow.setDate(tomorrow.getDate()+1);
+  const tKey=formatDateKey(tomorrow);
+  for(const t of tasks[key]){
+    if(!t.done){
+      const newTask={...t,date:tKey,id:null};
+      await addTask(newTask);
+    }
+  }
+  for(const t of [...tasks[key]]){
+    if(!t.done) await deleteTask(t);
+  }
+  render(); generateCalendar();
+});
+
+document.getElementById('todayBtn').addEventListener('click', async ()=>{
+  selectedDate = new Date();
+  await render();
+  highlightSelectedDay();
+});
+
+// --- Init ---
+generateCalendar();
+highlightSelectedDay();
+render();
 </script>
 </body>
 </html>
