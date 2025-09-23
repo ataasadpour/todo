@@ -85,7 +85,7 @@ function toJalali(date){return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dat
 const LS_KEY='todoAppTasks_v20', STUDY_LS_KEY='studyTime_v20';
 let tasks=JSON.parse(localStorage.getItem(LS_KEY)||'{}');
 let studyTime=JSON.parse(localStorage.getItem(STUDY_LS_KEY)||'{}');
-let timers={}; let selectedDate=new Date();
+let timers={}; let timerStarts={}; let selectedDate=new Date();
 const listEl=document.getElementById('list'),calendarSlider=document.getElementById('calendarSlider');
 const titleEl=document.getElementById('title'),subjectEl=document.getElementById('subject');
 function formatDateKey(d){return d.toISOString().split('T')[0]}
@@ -148,7 +148,9 @@ function render(){
     const timerContainer=document.createElement('div'); timerContainer.className='timer-container';
     const timerDiv=document.createElement('div'); timerDiv.className='timer-circle';
     const timerText=document.createElement('span');
+
     function formatTime(totalSec){const h=Math.floor(totalSec/3600); const m=Math.floor((totalSec%3600)/60); const s=totalSec%60; return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`}
+
     const initialSec=studyTime[key][task.title].minutes*60 + studyTime[key][task.title].seconds;
     timerText.textContent=formatTime(initialSec);
     timerDiv.appendChild(timerText);
@@ -165,19 +167,25 @@ function render(){
 
     const timerBtn=document.createElement('button'); timerBtn.textContent='شروع';
     timerBtn.addEventListener('click',()=>{
-      if(timers[task.title]){clearInterval(timers[task.title]); timers[task.title]=null; timerBtn.textContent='شروع'; saveStudyTime();}
-      else{
+      const tKey = key;
+      if(timers[task.title]){
+        clearInterval(timers[task.title]); timers[task.title]=null; timerBtn.textContent='شروع';
+        saveStudyTime();
+      } else {
         timerBtn.textContent='توقف';
+        if(!timerStarts[task.title]) timerStarts[task.title] = Date.now() - (studyTime[tKey][task.title].minutes*60 + studyTime[tKey][task.title].seconds)*1000;
         timers[task.title]=setInterval(()=>{
-          let totalSec=studyTime[key][task.title].minutes*60 + studyTime[key][task.title].seconds +1;
-          studyTime[key][task.title].minutes=Math.floor(totalSec/60);
-          studyTime[key][task.title].seconds=totalSec%60;
-          timerText.textContent=formatTime(totalSec);
+          const elapsed=Math.floor((Date.now()-timerStarts[task.title])/1000);
+          studyTime[tKey][task.title].minutes = Math.floor(elapsed/60);
+          studyTime[tKey][task.title].seconds = elapsed%60;
+          timerText.textContent = formatTime(elapsed);
+
           const totalGoalSec=task.goalMinutes*60;
-          const percent=Math.min(100, Math.floor(totalSec/totalGoalSec*100));
+          const percent=Math.min(100,Math.floor(elapsed/totalGoalSec*100));
           let color=percent<50?'#3b82f6':percent<80?'#f59e0b':'#22c55e';
           timerDiv.style.background=`conic-gradient(${color} 0% ${percent}%, #555 ${percent}% 100%)`;
-          saveStudyTime();
+          // ذخیره سبک
+          if(elapsed%5===0) saveStudyTime();
         },1000);
       }
     });
@@ -196,7 +204,7 @@ function render(){
       const tKey=formatDateKey(tomorrow);
       if(!tasks[tKey]) tasks[tKey]=[];
       tasks[tKey].push({...task});
-      if(timers[task.title]){clearInterval(timers[task.title]); delete timers[task.title];}
+      if(timers[task.title]){clearInterval(timers[task.title]); delete timers[task.title]; delete timerStarts[task.title];}
       tasks[key].splice(index,1);
       saveTasks(); render(); generateCalendar();
     });
@@ -206,7 +214,7 @@ function render(){
     deleteBtn.className='muted-btn';
     deleteBtn.addEventListener('click',()=>{
       if(confirm('آیا از حذف این کار مطمئن هستید؟')){
-        if(timers[task.title]){clearInterval(timers[task.title]); delete timers[task.title];}
+        if(timers[task.title]){clearInterval(timers[task.title]); delete timers[task.title]; delete timerStarts[task.title];}
         tasks[key].splice(index,1);
         saveTasks(); saveStudyTime(); render(); generateCalendar();
       }
