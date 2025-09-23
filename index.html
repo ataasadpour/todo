@@ -83,12 +83,8 @@ button:hover{background:#2563eb;color:#fff;}
 </section>
 </div>
 <script>
-  const API_URL = "https://nailonasadpour.ir/todo/api.php";
-
-function toJalali(date){return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(date)}
-
-let tasks = {}; 
-let studyTime = {};
+  const LS_KEY = 'studyTime_v20'; // فقط برای تایمر محلی
+let studyTime = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
 let timers = {};
 let selectedDate = new Date();
 
@@ -97,74 +93,78 @@ const calendarSlider = document.getElementById('calendarSlider');
 const titleEl = document.getElementById('title');
 const subjectEl = document.getElementById('subject');
 
-function formatDateKey(d){return d.toISOString().split('T')[0]}
+function formatDateKey(d){ return d.toISOString().split('T')[0]; }
+function toJalali(date){ return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(date); }
+function saveStudyTime(){ localStorage.setItem(LS_KEY,JSON.stringify(studyTime)); }
 
-// --- Load tasks from API ---
-async function loadTasks(date){
+// --- API ---
+async function loadTasks(dateKey){
     try{
-        const res = await fetch(`${API_URL}?action=get&date=${date}`);
-        let data = await res.json();
-        data = data.map(t=>({...t, done: t.done==1})); // تبدیل done به Boolean
-        tasks[date] = data;
-    } catch(err){ console.error(err); tasks[date]=[]; }
+        const res = await fetch(`https://nailonasadpour.ir/todo/api.php?action=get&date=${dateKey}`);
+        const data = await res.json();
+        window.tasks = window.tasks || {};
+        window.tasks[dateKey] = data.map(t=>{
+            t.done = parseInt(t.done); // 0/1
+            return t;
+        });
+    } catch(e){
+        console.error(e);
+        window.tasks = window.tasks || {};
+        window.tasks[dateKey] = [];
+    }
 }
 
-// --- Save / Update task ---
-async function updateTask(task){
-    await fetch(`${API_URL}?action=update`,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(task)
-    });
-}
-
-// --- Add new task ---
 async function addTask(task){
-    task.done = false;
-    task.study_minutes = 0;
-    task.study_seconds = 0;
-    const res = await fetch(`${API_URL}?action=add`,{
+    const res = await fetch('https://nailonasadpour.ir/todo/api.php?action=add',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify(task)
     });
     const data = await res.json();
     task.id = data.id;
-    const key = formatDateKey(selectedDate);
-    if(!tasks[key]) tasks[key]=[];
-    tasks[key].unshift(task);
+    const key = task.date;
+    if(!window.tasks[key]) window.tasks[key]=[];
+    window.tasks[key].unshift(task);
 }
 
-// --- Delete task ---
+async function updateTask(task){
+    await fetch('https://nailonasadpour.ir/todo/api.php?action=update',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(task)
+    });
+}
+
 async function deleteTask(id){
-    await fetch(`${API_URL}?action=delete&id=${id}`);
+    await fetch(`https://nailonasadpour.ir/todo/api.php?action=delete&id=${id}`);
 }
 
 // --- Calendar ---
 function generateCalendar(){
-  calendarSlider.innerHTML='';
-  const today=new Date();
-  for(let i=0;i<30;i++){
-    const day=new Date(); day.setDate(today.getDate()+i);
-    const key=formatDateKey(day);
-    const card=document.createElement('div'); card.className='day-card'; card.dataset.date=key;
-    card.innerHTML=`<div>${toJalali(day)}</div>`;
-    const progressCircle=document.createElement('div'); progressCircle.className='progress-circle';
-    if(tasks[key]&&tasks[key].length){
-      const doneCount=tasks[key].filter(t=>t.done).length;
-      const percent=Math.floor(doneCount/tasks[key].length*100);
-      progressCircle.style.background=`conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
-      progressCircle.textContent=`${percent}%`;
-    } else progressCircle.textContent='0%';
-    card.appendChild(progressCircle);
-    card.addEventListener('click',()=>{selectedDate=day; render(); highlightSelectedDay();});
-    calendarSlider.appendChild(card);
-  }
+    calendarSlider.innerHTML='';
+    const today = new Date();
+    for(let i=0;i<30;i++){
+        const day = new Date(); day.setDate(today.getDate()+i);
+        const key = formatDateKey(day);
+        const card = document.createElement('div'); card.className='day-card'; card.dataset.date=key;
+        card.innerHTML = `<div>${toJalali(day)}</div>`;
+        const progressCircle = document.createElement('div'); progressCircle.className='progress-circle';
+        if(window.tasks && window.tasks[key] && window.tasks[key].length){
+            const doneCount = window.tasks[key].filter(t=>t.done).length;
+            const percent = Math.floor(doneCount/window.tasks[key].length*100);
+            progressCircle.style.background=`conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
+            progressCircle.textContent=`${percent}%`;
+        } else progressCircle.textContent='0%';
+        card.appendChild(progressCircle);
+        card.addEventListener('click',()=>{ selectedDate=day; render(); highlightSelectedDay(); });
+        calendarSlider.appendChild(card);
+    }
 }
+
 function highlightSelectedDay(){
-  document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));
-  const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);
-  if(selCard) selCard.classList.add('selected');
+    document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));
+    const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);
+    if(selCard) selCard.classList.add('selected');
 }
 
 // --- Render ---
@@ -172,35 +172,98 @@ async function render(){
     const key = formatDateKey(selectedDate);
     await loadTasks(key);
     listEl.innerHTML='';
-    if(!tasks[key] || tasks[key].length==0){ document.getElementById('empty').style.display='block'; return;}
-    else{ document.getElementById('empty').style.display='none'; }
+    if(!window.tasks[key] || window.tasks[key].length==0){
+        document.getElementById('empty').style.display='block';
+        return;
+    } else document.getElementById('empty').style.display='none';
 
-    tasks[key].forEach((task,index)=>{
-        const el = document.createElement('div'); el.className='todo '+(task.done?'done':'pending');
-        const left = document.createElement('div'); left.className='left';
-        const h3 = document.createElement('h3'); h3.textContent=task.title; left.appendChild(h3);
-        const meta = document.createElement('div'); meta.className='meta';
-        const subj = document.createElement('div'); subj.textContent=task.subject; subj.className='subject-badge'; meta.appendChild(subj);
+    window.tasks[key].forEach((task,index)=>{
+        const el=document.createElement('div'); el.className='todo '+(task.done?'done':'pending');
+        const left=document.createElement('div'); left.className='left';
+        const h3=document.createElement('h3'); h3.textContent=task.title; left.appendChild(h3);
+        const meta=document.createElement('div'); meta.className='meta';
+        const subj=document.createElement('div'); subj.textContent=task.subject; subj.className='subject-badge'; meta.appendChild(subj);
         left.appendChild(meta);
 
-        const actions = document.createElement('div'); actions.className='actions';
-        const doneBtn = document.createElement('button'); doneBtn.textContent=task.done?'نشده کن':'انجام شد';
+        // --- Timer ---
+        if(!studyTime[key]) studyTime[key]={};
+        if(!studyTime[key][task.id]) studyTime[key][task.id]={minutes:task.study_minutes,seconds:task.study_seconds};
+        const timerContainer=document.createElement('div'); timerContainer.className='timer-container';
+        const timerDiv=document.createElement('div'); timerDiv.className='timer-circle';
+        const timerText=document.createElement('span');
+
+        function formatTime(totalSec){
+            const h=Math.floor(totalSec/3600);
+            const m=Math.floor((totalSec%3600)/60);
+            const s=totalSec%60;
+            return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        }
+        let initialSec = studyTime[key][task.id].minutes*60 + studyTime[key][task.id].seconds;
+        timerText.textContent=formatTime(initialSec);
+        timerDiv.appendChild(timerText);
+
+        const goalInput=document.createElement('input'); goalInput.type='number'; goalInput.min='1'; goalInput.value=task.goal_minutes;
+        goalInput.style.width='50px'; goalInput.title='هدف مطالعه (دقیقه)';
+        goalInput.addEventListener('change',(e)=>{
+            const val=parseInt(e.target.value);
+            if(!isNaN(val) && val>0){ task.goal_minutes=val; updateTask(task); } 
+            else e.target.value=task.goal_minutes;
+        });
+
+        timerContainer.appendChild(timerDiv); timerContainer.appendChild(goalInput);
+        left.appendChild(timerContainer);
+
+        const timerBtn=document.createElement('button'); timerBtn.textContent='شروع';
+        timerBtn.addEventListener('click',()=>{
+            if(timers[task.id]){ clearInterval(timers[task.id]); timers[task.id]=null; timerBtn.textContent='شروع'; saveStudyTime(); updateTask({...task, study_minutes:studyTime[key][task.id].minutes, study_seconds:studyTime[key][task.id].seconds}); }
+            else{
+                timerBtn.textContent='توقف';
+                timers[task.id] = setInterval(()=>{
+                    let totalSec=studyTime[key][task.id].minutes*60 + studyTime[key][task.id].seconds +1;
+                    studyTime[key][task.id].minutes=Math.floor(totalSec/60);
+                    studyTime[key][task.id].seconds=totalSec%60;
+                    timerText.textContent=formatTime(totalSec);
+                    let percent=Math.min(100,Math.floor(totalSec/(task.goal_minutes*60)*100));
+                    let color = percent<50?'#3b82f6':percent<80?'#f59e0b':'#22c55e';
+                    timerDiv.style.background=`conic-gradient(${color} 0% ${percent}%, #555 ${percent}% 100%)`;
+                    saveStudyTime();
+                    updateTask({...task, study_minutes:studyTime[key][task.id].minutes, study_seconds:studyTime[key][task.id].seconds});
+                },1000);
+            }
+        });
+
+        el.appendChild(left); el.appendChild(timerBtn);
+
+        // --- Actions ---
+        const actions=document.createElement('div'); actions.className='actions';
+        const doneBtn=document.createElement('button'); doneBtn.textContent=task.done?'نشده کن':'انجام شد';
         doneBtn.addEventListener('click', async ()=>{
-            task.done = !task.done; 
+            task.done = task.done ? 0 : 1;
             await updateTask(task); render(); generateCalendar();
         });
 
-        const deleteBtn = document.createElement('button'); deleteBtn.textContent='حذف'; deleteBtn.className='muted-btn';
+        const moveBtn=document.createElement('button'); moveBtn.textContent='انتقال به فردا';
+        moveBtn.addEventListener('click', async ()=>{
+            const tomorrow=new Date(selectedDate); tomorrow.setDate(tomorrow.getDate()+1);
+            const tKey=formatDateKey(tomorrow);
+            const newTask = {...task, id:undefined, date:tKey};
+            await addTask(newTask);
+            await deleteTask(task.id);
+            window.tasks[key].splice(index,1);
+            render(); generateCalendar();
+        });
+
+        const deleteBtn=document.createElement('button'); deleteBtn.textContent='حذف'; deleteBtn.className='muted-btn';
         deleteBtn.addEventListener('click', async ()=>{
             if(confirm('آیا از حذف این کار مطمئن هستید؟')){
                 await deleteTask(task.id);
-                tasks[key].splice(index,1);
+                window.tasks[key].splice(index,1);
                 render(); generateCalendar();
             }
         });
 
-        actions.appendChild(doneBtn); actions.appendChild(deleteBtn);
-        el.appendChild(left); el.appendChild(actions);
+        actions.appendChild(doneBtn); actions.appendChild(moveBtn); actions.appendChild(deleteBtn);
+        el.appendChild(actions);
         listEl.appendChild(el);
     });
 }
@@ -209,12 +272,7 @@ async function render(){
 document.getElementById('taskForm').addEventListener('submit', async e=>{
     e.preventDefault();
     const title = titleEl.value.trim(); if(!title) return;
-    await addTask({
-        date: formatDateKey(selectedDate),
-        title,
-        subject: subjectEl.value,
-        goal_minutes: 60
-    });
+    await addTask({date:formatDateKey(selectedDate),title,subject:subjectEl.value,goal_minutes:60});
     titleEl.value='';
     render(); generateCalendar();
 });
@@ -222,34 +280,36 @@ document.getElementById('taskForm').addEventListener('submit', async e=>{
 // --- Clear Completed ---
 document.getElementById('clearCompleted').addEventListener('click', async ()=>{
     const key = formatDateKey(selectedDate);
-    if(!tasks[key]) return;
-    for(const task of tasks[key].filter(t=>t.done)){
-        await deleteTask(task.id);
-    }
-    tasks[key] = tasks[key].filter(t=>!t.done);
+    if(!window.tasks[key]) return;
+    for(const task of window.tasks[key].filter(t=>t.done)) await deleteTask(task.id);
+    window.tasks[key] = window.tasks[key].filter(t=>!t.done);
     render(); generateCalendar();
 });
 
 // --- Auto Move ---
 document.getElementById('autoMoveBtn').addEventListener('click', async ()=>{
     const key = formatDateKey(selectedDate);
-    if(!tasks[key]) return;
+    if(!window.tasks[key]) return;
     const tomorrow = new Date(selectedDate); tomorrow.setDate(tomorrow.getDate()+1);
     const tKey = formatDateKey(tomorrow);
-    if(!tasks[tKey]) tasks[tKey] = [];
-    for(const task of tasks[key].filter(t=>!t.done)){
-        const newTask = {...task, id:undefined, date:tKey};
+    if(!window.tasks[tKey]) window.tasks[tKey] = [];
+    for(const task of window.tasks[key].filter(t=>!t.done)){
+        const newTask = {...task,id:undefined,date:tKey};
         await addTask(newTask);
     }
-    tasks[key] = tasks[key].filter(t=>t.done);
+    window.tasks[key] = window.tasks[key].filter(t=>t.done);
     render(); generateCalendar();
 });
 
 // --- Today button ---
-document.getElementById('todayBtn').addEventListener('click', ()=>{ selectedDate=new Date(); render(); highlightSelectedDay(); });
+document.getElementById('todayBtn').addEventListener('click', ()=>{
+    selectedDate = new Date();
+    render(); highlightSelectedDay();
+});
 
 // --- Init ---
 render(); generateCalendar(); highlightSelectedDay();
+
 
 </script>
 </body>
