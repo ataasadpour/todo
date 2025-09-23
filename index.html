@@ -40,6 +40,8 @@ button:hover{background:#2563eb;color:#fff;}
 .today-btn{position:fixed;top:12px;left:12px;padding:8px 12px;background:var(--accent);border:none;border-radius:10px;color:#000;cursor:pointer;z-index:10;transition:0.2s;}
 .today-btn:hover{background:#2563eb;color:#fff;}
 .empty{padding:20px;text-align:center;color:var(--muted);}
+.auto-move-btn{margin-top:8px;background:#f59e0b;color:#000;border-radius:8px;padding:6px;border:0;cursor:pointer;}
+.auto-move-btn:hover{background:#d97706;color:#fff;}
 @media(max-width:720px){form{grid-template-columns:1fr} .calendar-slider{gap:4px} .day-card{min-width:70px;padding:6px 6px;font-size:12px}}
 </style>
 </head>
@@ -70,6 +72,8 @@ button:hover{background:#2563eb;color:#fff;}
 </div>
 <div style="grid-column:1/-1">
 <button id="addBtn" type="submit">افزودن کار</button>
+<button id="clearCompleted" type="button" class="muted-btn">حذف انجام‌شده‌ها</button>
+<button id="autoMoveBtn" type="button" class="auto-move-btn">انتقال خودکار کارهای انجام نشده به فردا</button>
 </div>
 </form>
 <div class="list" id="list"></div>
@@ -80,158 +84,122 @@ button:hover{background:#2563eb;color:#fff;}
 <script>
 const API_URL = "https://nailonasadpour.ir/todo/api.php";
 
-function toJalali(date){
-    return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(date);
-}
+function toJalali(date){return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(date);}
+let selectedDate=new Date();
+const listEl=document.getElementById('list'),calendarSlider=document.getElementById('calendarSlider');
+const titleEl=document.getElementById('title'),subjectEl=document.getElementById('subject');
+let timers={};
 
-let selectedDate = new Date();
-const listEl = document.getElementById('list');
-const calendarSlider = document.getElementById('calendarSlider');
-const titleEl = document.getElementById('title');
-const subjectEl = document.getElementById('subject');
-
-let timers = {};
-
-function formatDateKey(d){ return d.toISOString().split('T')[0]; }
+function formatDateKey(d){return d.toISOString().split('T')[0];}
 
 async function fetchTasks(date){
-    const res = await fetch(`${API_URL}?action=get&date=${date}`);
+    const res=await fetch(`${API_URL}?action=get&date=${date}`);
     return await res.json();
 }
 
-async function addTaskToServer(task){
-    await fetch(`${API_URL}?action=add`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(task)
-    });
-}
+async function updateTaskServer(task){await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(task)});}
 
-async function updateTaskServer(task){
-    await fetch(`${API_URL}?action=update`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(task)
-    });
-}
-
-async function deleteTaskServer(id){
-    await fetch(`${API_URL}?action=delete&id=${id}`);
-}
+async function addTaskToServer(task){task.action='add'; await updateTaskServer(task);}
+async function markDoneServer(task){task.action='done'; await updateTaskServer(task);}
+async function deleteTaskServer(id){await updateTaskServer({action:'delete',id});}
 
 async function generateCalendar(){
-    calendarSlider.innerHTML='';
-    const today = new Date();
-    for(let i=0;i<30;i++){
-        const day = new Date(); day.setDate(today.getDate()+i);
-        const key = formatDateKey(day);
-        const card = document.createElement('div'); card.className='day-card'; card.dataset.date=key;
-        card.innerHTML=`<div>${toJalali(day)}</div>`;
-        const progressCircle = document.createElement('div'); progressCircle.className='progress-circle';
-        const tasks = await fetchTasks(key);
-        if(tasks && tasks.length){
-            const doneCount = tasks.filter(t=>t.done).length;
-            const percent = Math.floor(doneCount/tasks.length*100);
-            progressCircle.style.background=`conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
-            progressCircle.textContent = `${percent}%`;
-        } else progressCircle.textContent='0%';
-        card.appendChild(progressCircle);
-        card.addEventListener('click',()=>{selectedDate=day; render(); highlightSelectedDay();});
-        calendarSlider.appendChild(card);
-    }
+  calendarSlider.innerHTML='';
+  const today=new Date();
+  for(let i=0;i<30;i++){
+    const day=new Date(); day.setDate(today.getDate()+i);
+    const key=formatDateKey(day);
+    const card=document.createElement('div'); card.className='day-card'; card.dataset.date=key;
+    card.innerHTML=`<div>${toJalali(day)}</div>`;
+    const progressCircle=document.createElement('div'); progressCircle.className='progress-circle';
+    const tasks=await fetchTasks(key);
+    if(tasks && tasks.length){
+      const doneCount=tasks.filter(t=>t.done).length;
+      const percent=Math.floor(doneCount/tasks.length*100);
+      progressCircle.style.background=`conic-gradient(var(--done) 0% ${percent}%, #555 ${percent}% 100%)`;
+      progressCircle.textContent=`${percent}%`;
+    } else progressCircle.textContent='0%';
+    card.appendChild(progressCircle);
+    card.addEventListener('click',()=>{selectedDate=day; render(); highlightSelectedDay();});
+    calendarSlider.appendChild(card);
+  }
 }
 
 function highlightSelectedDay(){
-    document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));
-    const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);
-    if(selCard) selCard.classList.add('selected');
+  document.querySelectorAll('.day-card').forEach(c=>c.classList.remove('selected'));
+  const selCard=document.querySelector(`.day-card[data-date='${formatDateKey(selectedDate)}']`);
+  if(selCard) selCard.classList.add('selected');
 }
 
 async function render(){
-    const key = formatDateKey(selectedDate);
-    const tasks = await fetchTasks(key);
-    listEl.innerHTML='';
-    if(!tasks || !tasks.length){ document.getElementById('empty').style.display='block'; } 
-    else{ document.getElementById('empty').style.display='none'; }
+  const key=formatDateKey(selectedDate);
+  const tasks=await fetchTasks(key);
+  listEl.innerHTML='';
+  if(!tasks || !tasks.length){ document.getElementById('empty').style.display='block'; } else{ document.getElementById('empty').style.display='none'; }
 
-    tasks.forEach(task=>{
-        const el = document.createElement('div'); el.className='todo '+(task.done?'done':'pending');
-        const left = document.createElement('div'); left.className='left';
-        const h3 = document.createElement('h3'); h3.textContent = task.title;
-        const meta = document.createElement('div'); meta.className='meta';
-        const subj = document.createElement('div'); subj.className='subject-badge'; subj.textContent=task.subject;
-        meta.appendChild(subj); left.appendChild(h3); left.appendChild(meta);
+  tasks.forEach(task=>{
+    const el=document.createElement('div'); el.className='todo '+(task.done?'done':'pending');
+    const left=document.createElement('div'); left.className='left';
+    const h3=document.createElement('h3'); h3.textContent=task.title;
+    const meta=document.createElement('div'); meta.className='meta';
+    const subj=document.createElement('div'); subj.className='subject-badge'; subj.textContent=task.subject;
+    meta.appendChild(subj); left.appendChild(h3); left.appendChild(meta);
 
-        const timerContainer = document.createElement('div'); timerContainer.className='timer-container';
-        const timerDiv = document.createElement('div'); timerDiv.className='timer-circle';
-        const timerText = document.createElement('span'); timerDiv.appendChild(timerText);
+    // تایمر
+    const timerContainer=document.createElement('div'); timerContainer.className='timer-container';
+    const timerDiv=document.createElement('div'); timerDiv.className='timer-circle';
+    const timerText=document.createElement('span'); timerDiv.appendChild(timerText);
+    timerContainer.appendChild(timerDiv);
+    const goalInput=document.createElement('input'); goalInput.type='number'; goalInput.min='1'; goalInput.value=task.goalMinutes||60;
+    goalInput.style.width='50px'; goalInput.title='هدف مطالعه (دقیقه)';
+    goalInput.addEventListener('change', async e=>{const val=parseInt(e.target.value); if(val>0){task.goalMinutes=val; await updateTaskServer(task);} else e.target.value=task.goalMinutes;});
+    timerContainer.appendChild(goalInput);
+    left.appendChild(timerContainer);
+    el.appendChild(left);
 
-        const lastUpdate = task.last_timer_update ? new Date(task.last_timer_update) : new Date();
-        let elapsed = (Date.now() - lastUpdate.getTime())/1000 + (task.study_minutes*60 + task.study_seconds);
-        timerText.textContent = new Date(elapsed*1000).toISOString().substr(11,8);
-        timerDiv.style.background=`conic-gradient(var(--accent) 0% 0%, #555 0% 100%)`;
-
-        timerContainer.appendChild(timerDiv);
-
-        const goalInput = document.createElement('input'); goalInput.type='number'; goalInput.min='1'; goalInput.value = task.goal_minutes;
-        goalInput.style.width='50px'; goalInput.title='هدف مطالعه (دقیقه)';
-        goalInput.addEventListener('change', async (e)=>{
-            const val = parseInt(e.target.value);
-            if(val>0){ task.goal_minutes = val; await updateTaskServer(task); } else e.target.value = task.goal_minutes;
-        });
-        timerContainer.appendChild(goalInput);
-        left.appendChild(timerContainer);
-        el.appendChild(left);
-
-        const timerBtn = document.createElement('button'); timerBtn.textContent='شروع';
-        timerBtn.addEventListener('click', ()=>{
-            if(timers[task.id]){
-                clearInterval(timers[task.id]); delete timers[task.id]; timerBtn.textContent='شروع';
-                updateTaskServer({id:task.id, minutes:Math.floor(elapsed/60), seconds:Math.floor(elapsed%60)});
-            } else {
-                timerBtn.textContent='توقف';
-                timers[task.id] = setInterval(()=>{
-                    elapsed++;
-                    timerText.textContent = new Date(elapsed*1000).toISOString().substr(11,8);
-                    const percent = Math.min(100, Math.floor(elapsed/(task.goal_minutes*60)*100));
-                    let color=percent<50?'#3b82f6':percent<80?'#f59e0b':'#22c55e';
-                    timerDiv.style.background=`conic-gradient(${color} 0% ${percent}%, #555 ${percent}% 100%)`;
-
-                    if(Math.floor(elapsed)%5===0) updateTaskServer({id:task.id, minutes:Math.floor(elapsed/60), seconds:Math.floor(elapsed%60)});
-                },1000);
-            }
-        });
-        el.appendChild(timerBtn);
-
-        const actions = document.createElement('div'); actions.className='actions';
-        const doneBtn = document.createElement('button'); 
-        doneBtn.textContent = task.done?'نشده کن':'انجام شد';
-        doneBtn.addEventListener('click', async ()=>{ await updateTaskServer({id:task.id, done:!task.done}); render(); generateCalendar(); });
-        const deleteBtn = document.createElement('button'); deleteBtn.className='muted-btn'; deleteBtn.textContent='حذف';
-        deleteBtn.addEventListener('click', async ()=>{
-            if(confirm('آیا از حذف این کار مطمئن هستید؟')){
-                await deleteTaskServer(task.id); render(); generateCalendar();
-            }
-        });
-        actions.appendChild(doneBtn); actions.appendChild(deleteBtn);
-        el.appendChild(actions);
-
-        listEl.appendChild(el);
+    const timerBtn=document.createElement('button'); timerBtn.textContent='شروع';
+    timerBtn.addEventListener('click', async ()=>{
+      if(timers[task.id]){clearInterval(timers[task.id]); delete timers[task.id]; timerBtn.textContent='شروع'; await updateTaskServer(task);}
+      else {timerBtn.textContent='توقف'; timers[task.id]=setInterval(async ()=>{
+        task.elapsed=(task.elapsed||0)+1;
+        timerText.textContent=new Date(task.elapsed*1000).toISOString().substr(11,8);
+        await updateTaskServer(task);
+      },1000);}
     });
+    el.appendChild(timerBtn);
+
+    // دکمه‌ها
+    const actions=document.createElement('div'); actions.className='actions';
+    const doneBtn=document.createElement('button'); doneBtn.textContent=task.done?'نشده کن':'انجام شد';
+    doneBtn.addEventListener('click', async ()=>{task.done=!task.done; await markDoneServer(task); render(); generateCalendar();});
+    const deleteBtn=document.createElement('button'); deleteBtn.textContent='حذف'; deleteBtn.className='muted-btn';
+    deleteBtn.addEventListener('click', async ()=>{if(confirm('آیا از حذف این کار مطمئن هستید؟')){await deleteTaskServer(task.id); render(); generateCalendar();}});
+    actions.appendChild(doneBtn); actions.appendChild(deleteBtn); el.appendChild(actions);
+
+    listEl.appendChild(el);
+  });
 }
 
 document.getElementById('taskForm').addEventListener('submit', async e=>{
-    e.preventDefault();
-    const title = titleEl.value.trim(); if(!title) return;
-    await addTaskToServer({title, subject:subjectEl.value, date:formatDateKey(selectedDate), goal_minutes:60});
-    titleEl.value='';
-    render(); generateCalendar();
+  e.preventDefault();
+  const title=titleEl.value.trim(); if(!title) return;
+  await addTaskToServer({title,subject:subjectEl.value,date:formatDateKey(selectedDate),goalMinutes:60});
+  titleEl.value=''; render(); generateCalendar();
+});
+
+document.getElementById('todayBtn').addEventListener('click', ()=>{selectedDate=new Date(); render(); highlightSelectedDay();});
+document.getElementById('clearCompleted').addEventListener('click', async ()=>{
+  const tasks=await fetchTasks(formatDateKey(selectedDate));
+  for(const t of tasks){if(t.done) await deleteTaskServer(t.id);}
+  render(); generateCalendar();
+});
+document.getElementById('autoMoveBtn').addEventListener('click', async ()=>{
+  const tasks=await fetchTasks(formatDateKey(selectedDate));
+  for(const t of tasks){if(!t.done){t.date=new Date(selectedDate); t.date.setDate(t.date.getDate()+1); await addTaskToServer(t); await deleteTaskServer(t.id);}}
+  render(); generateCalendar();
 });
 
 generateCalendar(); highlightSelectedDay(); render();
-document.getElementById('todayBtn').addEventListener('click', ()=>{
-    selectedDate=new Date(); render(); highlightSelectedDay();
-});
 </script>
 </body>
 </html>
