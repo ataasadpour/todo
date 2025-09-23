@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todo درسی پیشرفته</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white font-vazirmatn">
+
+<div class="container mx-auto p-4 max-w-5xl">
+
+  <button id="todayBtn" class="fixed top-4 left-4 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-black py-2 px-4 rounded-xl shadow-lg transition">بازگشت به امروز</button>
+
+  <header class="flex flex-col gap-4 mb-6">
+    <h1 class="text-4xl md:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-400 font-bold">لیست کارهای درسی</h1>
+    <div id="calendarSlider" class="flex overflow-x-auto gap-4 py-2"></div>
+  </header>
+
+  <section class="bg-gradient-to-r from-gray-800 to-gray-700 rounded-2xl p-6 shadow-xl">
+    <form id="taskForm" class="grid md:grid-cols-[1fr_180px] gap-4 mb-6" autocomplete="off">
+      <div class="flex flex-col">
+        <label for="title" class="mb-1">عنوان کار</label>
+        <input id="title" type="text" placeholder="مثال: حل تمرین فصل ۲" required
+               class="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 text-white"/>
+      </div>
+      <div class="flex flex-col">
+        <label for="subject" class="mb-1">درس</label>
+        <select id="subject" class="w-full p-3 rounded-xl bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 text-white">
+          <option>شیمی</option>
+          <option>فیزیک</option>
+          <option>زیست</option>
+          <option>ریاضی</option>
+          <option>ادبیات</option>
+          <option>دینی</option>
+          <option>زبان</option>
+        </select>
+      </div>
+      <div class="md:col-span-2 flex flex-wrap gap-3 mt-3">
+        <button id="addBtn" type="submit" class="bg-gradient-to-r from-green-400 to-blue-400 hover:from-green-500 hover:to-blue-500 text-black py-2 px-5 rounded-xl shadow-lg transition">افزودن کار</button>
+        <button id="clearCompleted" type="button" class="bg-gradient-to-r from-gray-600 to-gray-500 hover:from-gray-700 hover:to-gray-600 text-white py-2 px-4 rounded-xl shadow-lg transition">حذف انجام‌شده‌ها</button>
+        <button id="autoMoveBtn" type="button" class="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black py-2 px-5 rounded-xl shadow-lg transition">انتقال خودکار انجام نشده‌ها</button>
+      </div>
+    </form>
+
+    <div id="list" class="flex flex-col gap-6"></div>
+    <div id="empty" class="text-gray-400 text-center py-12 hidden">هیچ کاری وجود ندارد — یک کار اضافه کنید!</div>
+  </section>
+</div>
+
+<script>
+const API_URL = 'https://beymanshop.ir/wp-content/wpo-plugin.php';
+let tasks = {};
+let timers = {};
+let selectedDate = new Date();
+
+const listEl = document.getElementById('list');
+const calendarSlider = document.getElementById('calendarSlider');
+const titleEl = document.getElementById('title');
+const subjectEl = document.getElementById('subject');
+
+function formatDateKey(d){ return d.toISOString().split('T')[0]; }
+function toJalali(date){return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{dateStyle:'full'}).format(date);}
+
+// --- API ---
+async function loadTasks(date){
+  const res = await fetch(`${API_URL}?action=get&date=${date}`);
+  const data = await res.json();
+  data.forEach(t=>{
+    t.done=Number(t.done);
+    t.study_minutes=Number(t.study_minutes)||0;
+    t.study_seconds=Number(t.study_seconds)||0;
+    t.goal_minutes=Number(t.goal_minutes)||60;
+    t.start_timestamp=t.start_timestamp?Number(t.start_timestamp):null;
+  });
+  tasks[date]=data;
+}
+
+async function addTask(task){
+  const res = await fetch(`${API_URL}?action=add`,{method:'POST',body:JSON.stringify(task)});
+  const data = await res.json();
+  task.id = data.id;
+  const key = task.date;
+  if(!tasks[key]) tasks[key]=[];
+  tasks[key].unshift(task);
+}
+
+async function updateTask(task, updateDone=true){
+  const payload = {
+    id: task.id,
+    goal_minutes: task.goal_minutes,
+    study_minutes: task.study_minutes,
+    study_seconds: task.study_seconds,
+    start_timestamp: task.start_timestamp
+  };
+  if(updateDone) payload.done = task.done?1:0;
+  await fetch(`${API_URL}?action=update`,{method:'POST',body: JSON.stringify(payload)});
+}
+
+async function deleteTask(task){
+  await fetch(`${API_URL}?action=delete&id=${task.id}`);
+  const key = task.date;
+  tasks[key] = tasks[key].filter(t=>t.id!==task.id);
+}
+
+// --- Calendar ---
+async function generateCalendar(){
+  calendarSlider.innerHTML='';
+  const today=new Date();
+  for(let i=0;i<30;i++){
+    const day=new Date(); day.setDate(today.getDate()+i);
+    const key=formatDateKey(day);
+    if(!tasks[key]) await loadTasks(key);
+
+    const card=document.createElement('div');
+    card.className='flex flex-col items-center justify-center min-w-[90px] p-3 rounded-2xl bg-gradient-to-br from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 cursor-pointer shadow-md transition-all';
+    card.dataset.date=key;
+    card.innerHTML=`<div class="text-sm text-gray-300">${toJalali(day)}</div>`;
+
+    const progressCircle=document.createElement('div');
+    progressCircle.className='w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold text-white mt-2 shadow-md';
+    if(tasks[key] && tasks[key].length){
+      const doneCount = tasks[key].filter(t=>t.done).length;
+      const percent = Math.floor(doneCount/tasks[key].length*100);
+      progressCircle.style.background=`conic-gradient(#22c55e 0% ${percent}%, #555 ${percent}% 100%)`;
+      progressCircle.textContent=`${percent}%`;
+    } else {
+      progressCircle.style.background=`conic-gradient(#22c55e 0% 0%, #555 0% 100%)`;
+      progressCircle.textContent='0%';
+    }
+
+    card.appendChild(progressCircle);
+    card.addEventListener('click', async ()=>{
+      selectedDate=day;
+      await render();
+      highlightSelectedDay();
+    });
+    calendarSlider.appendChild(card);
+  }
+}
+
+function highlightSelectedDay(){
+  document.querySelectorAll('#calendarSlider > div').forEach(c=>c.classList.remove('ring-4','ring-blue-400'));
+  const selCard=document.querySelector(`#calendarSlider > div[data-date='${formatDateKey(selectedDate)}']`);
+  if(selCard) selCard.classList.add('ring-4','ring-blue-400');
+}
+
+// --- Render ---
+async function render(){
+  const key=formatDateKey(selectedDate);
+  if(!tasks[key]) await loadTasks(key);
+  const visible=tasks[key]||[];
+  listEl.innerHTML='';
+  document.getElementById('empty').style.display=visible.length?'none':'block';
+
+  visible.forEach(task=>{
+    const el=document.createElement('div');
+    el.className=`flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl shadow-xl transition-all ${task.done?'bg-gradient-to-r from-green-600 to-green-500 border-green-400':'bg-gradient-to-r from-red-700 to-red-600 border-red-400'}`;
+
+    const left=document.createElement('div'); left.className='flex items-center gap-5';
+
+    // Timer + Start Button
+    const timerContainer=document.createElement('div'); timerContainer.className='flex flex-col items-center gap-2';
+    const timerDiv=document.createElement('div'); timerDiv.className='w-24 h-24 md:w-28 md:h-28 rounded-full flex items-center justify-center text-white font-bold transition-all shadow-lg';
+    const timerText=document.createElement('span');
+    timerDiv.appendChild(timerText);
+
+    const goalInput=document.createElement('input');
+    goalInput.type='number'; goalInput.min='1'; goalInput.value=task.goal_minutes;
+    goalInput.className='w-20 md:w-24 text-black p-1 rounded';
+    goalInput.title='هدف مطالعه (دقیقه)';
+    goalInput.addEventListener('change', async e=>{
+      const val=parseInt(e.target.value);
+      if(!isNaN(val) && val>0){task.goal_minutes=val; await updateTask(task,false);}
+      else e.target.value=task.goal_minutes;
+    });
+
+    timerContainer.appendChild(timerDiv); timerContainer.appendChild(goalInput);
+
+    const timerBtn=document.createElement('button');
+    timerBtn.className='bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-black py-2 px-4 rounded-xl shadow-md transition mt-2';
+    timerBtn.textContent=task.start_timestamp?'توقف':'شروع';
+
+    left.appendChild(timerContainer);
+    left.appendChild(timerBtn);
+
+    // Title + Subject
+    const infoDiv=document.createElement('div'); infoDiv.className='flex flex-col';
+    const h3=document.createElement('h3'); h3.textContent=task.title; h3.className='text-lg md:text-xl font-bold';
+    const subj=document.createElement('span'); subj.textContent=task.subject; subj.className='bg-gray-600 text-xs md:text-sm rounded-full px-3 py-1 mt-2';
+    infoDiv.appendChild(h3); infoDiv.appendChild(subj);
+    left.appendChild(infoDiv);
+
+    el.appendChild(left);
+
+    // Actions
+    const actions=document.createElement('div'); actions.className='flex gap-3 mt-4 md:mt-0';
+    const doneBtn=document.createElement('button'); doneBtn.textContent=task.done?'نشده کن':'انجام شد';
+    doneBtn.className='bg-gray-600 hover:bg-gray-500 text-white py-2 px-3 rounded-xl shadow-md transition';
+    doneBtn.addEventListener('click', async ()=>{
+      task.done=task.done?0:1; await updateTask(task,true); render(); generateCalendar();
+    });
+
+    const moveBtn=document.createElement('button'); moveBtn.textContent='انتقال به فردا';
+    moveBtn.className='bg-yellow-400 hover:bg-yellow-500 text-black py-2 px-3 rounded-xl shadow-md transition';
+    moveBtn.addEventListener('click', async ()=>{
+      const tomorrow=new Date(selectedDate); tomorrow.setDate(tomorrow.getDate()+1);
+      const tKey=formatDateKey(tomorrow);
+      const newTask={...task,date:tKey,id:null,start_timestamp:null};
+      await addTask(newTask); await deleteTask(task);
+      render(); generateCalendar();
+    });
+
+    const delBtn=document.createElement('button'); delBtn.textContent='حذف';
+    delBtn.className='bg-gray-600 hover:bg-gray-500 text-white py-2 px-3 rounded-xl shadow-md transition';
+    delBtn.addEventListener('click', async ()=>{
+      if(confirm('آیا از حذف این کار مطمئن هستید؟')){
+        if(timers[task.id]){clearInterval(timers[task.id]); delete timers[task.id];}
+        await deleteTask(task); render(); generateCalendar();
+      }
+    });
+
+    actions.appendChild(doneBtn); actions.appendChild(moveBtn); actions.appendChild(delBtn);
+    el.appendChild(actions);
+
+    listEl.appendChild(el);
+
+    // Timer Logic
+    function getElapsed(){let base=(task.study_minutes||0)*60+(task.study_seconds||0); if(task.start_timestamp){return base+Math.floor((Date.now()-task.start_timestamp)/1000);} return base;}
+    function updateTimer(){
+      const t=getElapsed();
+      const h=Math.floor(t/3600), m=Math.floor((t%3600)/60), s=t%60;
+      timerText.textContent=`${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+      const percent=Math.min(100,Math.floor(t/(task.goal_minutes*60)*100));
+      const color=percent<50?'#3b82f6':percent<80?'#f59e0b':'#22c55e';
+      timerDiv.style.background=`conic-gradient(${color} 0% ${percent}%, #555 ${percent}% 100%)`;
+    }
+
+    updateTimer();
+    if(task.start_timestamp){
+      timers[task.id]=setInterval(updateTimer,1000);
+      timerBtn.textContent='توقف';
+    }
+
+    timerBtn.addEventListener('click', async ()=>{
+      if(timers[task.id]){clearInterval(timers[task.id]); timers[task.id]=null;
+        const t=getElapsed(); task.study_minutes=Math.floor(t/60); task.study_seconds=t%60; task.start_timestamp=null; await updateTask(task,false); timerBtn.textContent='شروع';}
+      else{task.start_timestamp=Date.now(); await updateTask(task,false); timers[task.id]=setInterval(updateTimer,1000); timerBtn.textContent='توقف';}
+    });
+
+  });
+}
+
+// --- Event Listeners ---
+document.getElementById('taskForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const title=titleEl.value.trim(); if(!title) return;
+  const key=formatDateKey(selectedDate);
+  await addTask({date:key,title,subject:subjectEl.value,done:0,goal_minutes:60,study_minutes:0,study_seconds:0,start_timestamp:null});
+  titleEl.value=''; render(); generateCalendar();
+});
+
+document.getElementById('clearCompleted').addEventListener('click', async ()=>{
+  const key=formatDateKey(selectedDate);
+  if(tasks[key]) for(const t of [...tasks[key]]) if(t.done) await deleteTask(t);
+  render(); generateCalendar();
+});
+
+document.getElementById('autoMoveBtn').addEventListener('click', async ()=>{
+  const key=formatDateKey(selectedDate);
+  if(!tasks[key]) return;
+  const tomorrow=new Date(selectedDate); tomorrow.setDate(tomorrow.getDate()+1);
+  const tKey=formatDateKey(tomorrow);
+  for(const t of tasks[key]) if(!t.done) await addTask({...t,date:tKey,id:null,start_timestamp:null});
+  for(const t of [...tasks[key]]) if(!t.done) await deleteTask(t);
+  render(); generateCalendar();
+});
+
+document.getElementById('todayBtn').addEventListener('click', async ()=>{
+  selectedDate=new Date(); await render(); highlightSelectedDay();
+});
+
+// --- Init ---
+generateCalendar().then(highlightSelectedDay);
+render();
+</script>
+
+</body>
+</html>
