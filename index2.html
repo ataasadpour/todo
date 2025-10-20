@@ -7,24 +7,24 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
 @layer utilities {
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none; /* IE/Edge */
-    scrollbar-width: none;    /* Firefox */
-  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
-.calendar-slider {
-  -webkit-overflow-scrolling: touch;
-}
-
+.calendar-slider { -webkit-overflow-scrolling: touch; }
 
 body { font-family: Vazirmatn, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background: #0f111a; }
 .todo-card { backdrop-filter: blur(12px); background: rgba(30,30,40,0.5); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s, box-shadow 0.2s; }
 .todo-card:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 15px 25px rgba(0,0,0,0.6); }
 .timer-circle { width: 96px; height: 96px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight:bold; font-size:1rem; color:#fff; transition: background 0.5s linear; flex-shrink:0; }
-.subject-badge { padding: 0.2rem 0.6rem; border-radius:999px; font-size:0.8rem; color:white; margin-top:0.3rem; display:inline-block; }
+.subject-badge {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    color: white;
+    margin-top: 0.5rem;
+    display: inline-block;
+    font-size: 18px;
+}
 .progress-bar { transition: width 0.5s, background 0.5s; height: 0.75rem; border-radius: 999px; }
 </style>
 </head>
@@ -32,7 +32,6 @@ body { font-family: Vazirmatn, system-ui, -apple-system, "Segoe UI", Roboto, "He
 
 <div class="container mx-auto p-4 max-w-6xl">
   <button id="todayBtn" class="fixed top-4 left-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-lg z-20 transition">بازگشت به امروز</button>
- 
 
   <header class="mb-6">
     <h1 class="text-3xl sm:text-4xl font-bold text-blue-400 mb-3">لیست کارهای درسی</h1>
@@ -112,16 +111,15 @@ async function render(){
     const el=document.createElement('div'); 
     el.className='todo-card flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl border';
 
-    // ✅ رنگ کارت بر اساس وضعیت
     if(task.done){
       el.classList.add("bg-green-600/40","border-green-500");
     } else {
       el.classList.add("bg-red-600/30","border-red-500");
     }
 
-    // تایمر دایره‌ای و هدف مطالعه و دکمه شروع
+    // 🔹 تایمر — در حالت پیش‌فرض مخفی
     const timerCol=document.createElement('div'); 
-    timerCol.className='flex flex-col items-center w-full sm:w-32 gap-2';
+    timerCol.className='flex flex-col items-center w-full sm:w-32 gap-2 hidden'; // 👈 مخفی در ابتدا
 
     const timerCircle=document.createElement('div'); 
     timerCircle.className='timer-circle bg-gray-800'; 
@@ -133,7 +131,6 @@ async function render(){
     goalInput.type='number'; 
     goalInput.min='1'; 
     goalInput.value=task.goal_minutes; 
-    goalInput.title='هدف مطالعه (دقیقه)'; 
     goalInput.className='w-20 p-1 rounded-lg bg-gray-700 text-white border border-gray-600 text-sm text-center';
     goalInput.addEventListener('change', async (e)=>{
       const val=parseInt(e.target.value); 
@@ -150,10 +147,18 @@ async function render(){
     timerCol.appendChild(timerBtn);
     el.appendChild(timerCol);
 
-    // اطلاعات و نوار پیشرفت
+    // 🔹 دکمه نمایش/مخفی کردن تایمر
+    const toggleTimerBtn=document.createElement('button');
+    toggleTimerBtn.textContent='نمایش تایمر';
+    toggleTimerBtn.className='bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm';
+    toggleTimerBtn.addEventListener('click',()=>{
+      timerCol.classList.toggle('hidden');
+      toggleTimerBtn.textContent = timerCol.classList.contains('hidden') ? 'نمایش تایمر' : 'مخفی‌کردن تایمر';
+    });
+
+    // اطلاعات
     const infoDiv=document.createElement('div'); 
     infoDiv.className='flex-1 flex flex-col gap-1 w-full';
-
     const titleH=document.createElement('h3'); 
     titleH.className='text-lg sm:text-xl font-semibold'; 
     titleH.textContent=task.title; 
@@ -171,11 +176,9 @@ async function render(){
     progressBg.appendChild(progressBar); 
     infoDiv.appendChild(progressBg);
 
-    // دکمه‌ها
     const actionsDiv=document.createElement('div'); 
     actionsDiv.className='flex flex-wrap gap-2 mt-2';
 
-    // ✅ دکمه انجام شد/نشده بر اساس وضعیت
     const doneBtn=document.createElement('button'); 
     doneBtn.textContent=task.done ? 'نشده کن' : 'انجام شد'; 
     doneBtn.className=(task.done
@@ -194,11 +197,13 @@ async function render(){
     deleteBtn.className='bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-lg text-sm'; 
     actionsDiv.appendChild(deleteBtn);
 
+    actionsDiv.appendChild(toggleTimerBtn); // 👈 دکمه نمایش تایمر اضافه شد
+
     infoDiv.appendChild(actionsDiv); 
     el.appendChild(infoDiv); 
     listEl.appendChild(el);
 
-    // ==== تایمر و پیشرفت ====
+    // ==== تایمر ====
     function getElapsedSec(){
       let s=(task.study_minutes||0)*60+(task.study_seconds||0); 
       if(task.start_timestamp) s+=Math.floor((Date.now()-task.start_timestamp)/1000); 
@@ -217,7 +222,6 @@ async function render(){
     updateTimer();
     if(task.start_timestamp) timers[task.id]=setInterval(updateTimer,1000);
 
-    // رویدادها
     timerBtn.addEventListener('click', async ()=>{
       if(timers[task.id]){
         clearInterval(timers[task.id]); 
@@ -237,7 +241,7 @@ async function render(){
         timerBtn.textContent='توقف';
       }
     });
-    
+
     doneBtn.addEventListener('click', async ()=>{
       task.done=task.done?0:1; 
       await updateTask(task,true); 
@@ -278,4 +282,3 @@ render();
 </script>
 </body>
 </html>
-
